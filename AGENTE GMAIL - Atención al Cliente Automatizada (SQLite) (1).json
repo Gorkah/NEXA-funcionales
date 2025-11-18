@@ -1,0 +1,368 @@
+{
+  "name": "AGENTE GMAIL - Atención al Cliente Automatizada (SQLite)",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "filters": {
+          "readStatus": "unread",
+          "sender": "gorkahvinsperecalders@gmail.com"
+        }
+      },
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        112,
+        304
+      ],
+      "id": "gmail-trigger",
+      "name": "Gmail Trigger - Nuevos Emails",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "0DPS2NcoZg6dGINB",
+          "name": "Gmail account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "email_id",
+              "name": "email_id",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            },
+            {
+              "id": "email_from",
+              "name": "email_from",
+              "value": "={{ $json.From.split('<')[1].split('>')[0] }} ",
+              "type": "string"
+            },
+            {
+              "id": "email_from_name",
+              "name": "email_from_name",
+              "value": "={{ $json.To }}",
+              "type": "string"
+            },
+            {
+              "id": "email_subject",
+              "name": "email_subject",
+              "value": "={{ $json.Subject }}",
+              "type": "string"
+            },
+            {
+              "id": "email_body",
+              "name": "email_body",
+              "value": "={{ $json.snippet }}",
+              "type": "string"
+            },
+            {
+              "id": "email_date",
+              "name": "email_date",
+              "value": "={{ $json.internalDate }}",
+              "type": "string"
+            },
+            {
+              "id": "thread_id",
+              "name": "thread_id",
+              "value": "={{ $json.threadId }}",
+              "type": "string"
+            },
+            {
+              "id": "timestamp",
+              "name": "timestamp",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        304,
+        304
+      ],
+      "id": "extract-email-data",
+      "name": "Extraer Datos Email"
+    },
+    {
+      "parameters": {
+        "command": "=sqlite3 /home/node/.n8n/private_data.sqlite \"CREATE TABLE IF NOT EXISTS customers_sql1 (id INTEGER PRIMARY KEY AUTOINCREMENT, nombre_completo TEXT, empresa TEXT, telefono TEXT, email TEXT UNIQUE, created_at TEXT); SELECT id, nombre_completo, empresa, telefono, email FROM customers_sql1 WHERE LOWER(email) = LOWER('{{ $json.email_from }}') LIMIT 1;\""
+      },
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        512,
+        304
+      ],
+      "id": "check-customer",
+      "name": "SQLite - Verificar Cliente"
+    },
+    {
+      "parameters": {
+        "jsCode": "const emailData = $('Extraer Datos Email').first().json;\nconst customerCheckOutput = $input.first().json.stdout || '';\n\nconst isExistingCustomer = customerCheckOutput.trim() !== '';\nlet customerInfo = null;\n\nif (isExistingCustomer) {\n  const parts = customerCheckOutput.trim().split('|');\n  if (parts.length >= 5) {\n    customerInfo = {\n      id: parts[0],\n      nombre_completo: parts[1],\n      empresa: parts[2],\n      telefono: parts[3],\n      email: parts[4]\n    };\n  }\n}\n\nreturn {\n  ...emailData,\n  is_existing_customer: isExistingCustomer,\n  customer_id: customerInfo?.id || null,\n  customer_name: customerInfo?.nombre_completo || emailData.email_from_name,\n  customer_empresa: customerInfo?.empresa || 'N/A',\n  customer_phone: customerInfo?.telefono || ''\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        704,
+        304
+      ],
+      "id": "prepare-context",
+      "name": "Preparar Contexto Cliente"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Email de: {{ $json.email_from_name }} <{{ $json.email_from }}>\\nAsunto: {{ $json.email_subject }}\\n\\nMensaje:\\n{{ $json.email_body }}\\n\\n---\\n\\n**Información del remitente:**\\nCliente existente: {{ $json.is_existing_customer ? 'Sí' : 'No' }}\\n{{ $json.is_existing_customer ? 'Nombre: ' + $json.customer_name : '' }}\\n{{ $json.is_existing_customer && $json.customer_empresa !== 'N/A' ? 'Empresa: ' + $json.customer_empresa : '' }}\\n\\nFecha del email: {{ $json.email_date }}",
+        "options": {
+          "systemMessage": "# Rol\\nEres el asistente virtual de atención al cliente de puma, especializada en automatización con IA.\\n\\nTu función es responder emails de manera profesional, eficiente y personalizada.\\n\\n# Directrices\\n\\n- **Profesional pero cercano**\\n- Usa el nombre del cliente\\n- Evita jerga técnica innecesaria\\n- Sé conciso pero completo\\n- Muestra empatía\\n\\n## Estructura:\\n1. Saludo personalizado\\n2. Agradecimiento\\n3. Respuesta directa\\n4. Info adicional (si aplica)\\n5. Call-to-action\\n6. Despedida profesional\\n\\n## Servicios:\\n- Standard ($99/mes): WhatsApp + Gmail + Leads\\n- Premium ($199/mes): Standard + Voice + Marketing\\n- NEXA ($399/mes): Suite completa\\n\\n## Contactos:\\n- Email: puma@gmail.com\\n- Horario: Lun-Vie 9-18h\\n\\n## IMPORTANTE\\n- NO inventes información\\n- NO prometas sin confirmar\\n- NO uses Markdown\\n- Respuestas 100-200 palabras\\n- Siempre incluye call-to-action"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        880,
+        0
+      ],
+      "id": "ai-email-responder",
+      "name": "AI Email Responder"
+    },
+    {
+      "parameters": {
+        "jsCode": "const aiResponse = $('AI Email Responder').first().json.output;\nconst emailData = $('Preparar Contexto Cliente').first().json;\n\n// Convert to HTML\nlet htmlResponse = aiResponse\n  .replace(/\\n/g, '<br>')\n  .replace(/\\*\\*(.*?)\\*\\*/g, '<strong>$1</strong>')\n  .replace(/\\*(.*?)\\*/g, '<em>$1</em>');\n\nconst finalHtml = `\n<div style=\"font-family: Arial, sans-serif; font-size: 14px; color: #333; line-height: 1.6;\">\n  ${htmlResponse}\n  <br><br>\n  <div style=\"border-top: 1px solid #e0e0e0; padding-top: 15px; margin-top: 20px;\">\n    <p style=\"margin: 5px 0;\"><strong>Equipo de Soporte - puma</strong></p>\n    <p style=\"margin: 5px 0; font-size: 12px; color: #666;\">\n      📧 Email: puma@gmail.com<br>\n      🕐 Horario: Lunes a Viernes, 9:00 - 18:00<br>\n      🌐 Web: https://sql1.srv869945.hstgr.cloud\n    </p>\n  </div>\n</div>\n`;\n\nreturn {\n  ...emailData,\n  response_text: aiResponse,\n  response_html: finalHtml\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1104,
+        304
+      ],
+      "id": "format-response",
+      "name": "Formatear Respuesta HTML"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.email_from }}",
+        "subject": "=Re: {{ $json.email_subject }}",
+        "message": "={{ $json.response_html }}",
+        "options": {
+          "bccList": "",
+          "ccList": ""
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1312,
+        304
+      ],
+      "id": "send-email-reply",
+      "name": "Gmail - Enviar Respuesta",
+      "webhookId": "361c6ddc-a82a-4e99-8a77-36f34bd3a920",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "0DPS2NcoZg6dGINB",
+          "name": "Gmail account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "command": "=sqlite3 /home/node/.n8n/private_data.sqlite \"CREATE TABLE IF NOT EXISTS emails_sent_sql1 (id INTEGER PRIMARY KEY AUTOINCREMENT, destinatario TEXT, asunto TEXT, cuerpo TEXT, tipo TEXT, estado TEXT, fecha_envio TEXT); INSERT INTO emails_sent_sql1 (destinatario, asunto, cuerpo, tipo, estado, fecha_envio) VALUES ('{{ $json.email_from }}', 'Re: {{ $json.email_subject.replace(/'/g, \"''\") }}', '{{ $json.response_text.replace(/'/g, \"''\") }}', 'atencion_cliente', 'enviado', '{{ $json.timestamp }}');\""
+      },
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        1504,
+        304
+      ],
+      "id": "log-email-sent",
+      "name": "SQLite - Registrar Email"
+    },
+    {
+      "parameters": {
+        "sendTo": "gorkahvinsperecalders@gmail.com",
+        "subject": "Hola",
+        "message": "ciruelo",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1712,
+        304
+      ],
+      "id": "mark-as-read",
+      "name": "Gmail - Marcar Como Leído",
+      "webhookId": "450cfb43-147f-40ad-bb9e-f74935c52eec",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "0DPS2NcoZg6dGINB",
+          "name": "Gmail account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## AGENTE GMAIL - SQLite\n\n### Funcionalidades:\n✅ Monitoreo automático emails no leídos\n✅ Base de datos SQLite interna\n✅ Respuestas inteligentes con IA\n✅ Formato HTML profesional\n✅ Sin dependencias externas\n\n### Base de Datos:\n- **Ubicación**: `/home/node/.n8n/private_data.sqlite`\n- **Tablas**:\n  - `customers_sql1`\n  - `emails_sent_sql1`\n\n### Configuración Gmail:\n1. Crear cuenta Gmail\n2. Habilitar Gmail API en Google Cloud\n3. Crear credenciales OAuth 2.0\n4. En n8n: Gmail OAuth2 credential\n5. Autorizar cuenta\n\n### Variables:\n- `CLIENT_ID`\n- `COMPANY_NAME`\n- `CONTACT_EMAIL`\n- `OPENAI_CREDENTIAL_ID`\n- `GMAIL_CREDENTIAL_ID`",
+        "height": 550,
+        "width": 400,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -256,
+        160
+      ],
+      "id": "sticky-note-info",
+      "name": "Info Workflow"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        784,
+        512
+      ],
+      "id": "511ffec4-3213-4ac1-84e9-ff52c45c12b3",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "ldVfHCaN0ySWxI1E",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Gmail Trigger - Nuevos Emails": {
+      "main": [
+        [
+          {
+            "node": "Extraer Datos Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extraer Datos Email": {
+      "main": [
+        [
+          {
+            "node": "SQLite - Verificar Cliente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SQLite - Verificar Cliente": {
+      "main": [
+        [
+          {
+            "node": "Preparar Contexto Cliente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar Contexto Cliente": {
+      "main": [
+        [
+          {
+            "node": "AI Email Responder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Email Responder": {
+      "main": [
+        [
+          {
+            "node": "Formatear Respuesta HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Formatear Respuesta HTML": {
+      "main": [
+        [
+          {
+            "node": "Gmail - Enviar Respuesta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail - Enviar Respuesta": {
+      "main": [
+        [
+          {
+            "node": "SQLite - Registrar Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SQLite - Registrar Email": {
+      "main": [
+        [
+          {
+            "node": "Gmail - Marcar Como Leído",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Email Responder",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "d293b82f-231a-4cac-9213-3ccd112247e6",
+  "meta": {
+    "templateId": "agent-gmail-standard-v3-sqlite",
+    "templateCreatedBy": "puma",
+    "description": "Agente Gmail automatizado con IA, usando SQLite interno de n8n",
+    "templateCredsSetupCompleted": true,
+    "instanceId": "5779338d8ee6159c235c054c6cf7f1748d4de2d0e0f152f89b949f4153e3b610"
+  },
+  "id": "03t5LJdDGoR3ScVm",
+  "tags": []
+}
