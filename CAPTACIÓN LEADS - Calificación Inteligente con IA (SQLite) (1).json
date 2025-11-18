@@ -1,0 +1,493 @@
+{
+  "name": "CAPTACIÓN LEADS - Calificación Inteligente con IA (SQLite)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "lead-capture",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        112,
+        400
+      ],
+      "id": "webhook-lead-capture",
+      "name": "Webhook Formulario Web",
+      "webhookId": "lead-capture-webhook"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "nombre",
+              "name": "nombre",
+              "value": "={{ $json.body.nombre || $json.nombre || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "apellido",
+              "name": "apellido",
+              "value": "={{ $json.body.apellido || $json.apellido || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "email",
+              "name": "email",
+              "value": "={{ $json.body.email || $json.email || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "telefono",
+              "name": "telefono",
+              "value": "={{ $json.body.telefono || $json.telefono || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "empresa",
+              "name": "empresa",
+              "value": "={{ $json.body.empresa || $json.empresa || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "mensaje",
+              "name": "mensaje",
+              "value": "={{ $json.body.mensaje || $json.mensaje || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "interes",
+              "name": "interes",
+              "value": "={{ $json.body.interes || $json.interes || 'General' }}",
+              "type": "string"
+            },
+            {
+              "id": "fuente",
+              "name": "fuente",
+              "value": "={{ $json.body.fuente || $json.fuente || 'Formulario Web' }}",
+              "type": "string"
+            },
+            {
+              "id": "timestamp",
+              "name": "timestamp",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        304,
+        400
+      ],
+      "id": "extract-form-data",
+      "name": "Extraer Datos Formulario"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\n\n// Validaciones\nif (!data.nombre || !data.email) {\n  throw new Error('Campos requeridos: nombre y email');\n}\n\nconst emailRegex = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;\nif (!emailRegex.test(data.email)) {\n  throw new Error('Formato de email inválido');\n}\n\n// Score de completitud\nconst campos = ['nombre', 'apellido', 'email', 'telefono', 'empresa', 'mensaje', 'interes'];\nconst camposCompletos = campos.filter(campo => data[campo] && data[campo].trim() !== '').length;\nconst completitudScore = Math.round((camposCompletos / campos.length) * 100);\n\nreturn {\n  ...data,\n  completitud_score: completitudScore\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        512,
+        400
+      ],
+      "id": "validate-data",
+      "name": "Validar Datos"
+    },
+    {
+      "parameters": {
+        "command": "=sqlite3 /home/node/.n8n/private_data.sqlite \"CREATE TABLE IF NOT EXISTS leads_sql1 (id INTEGER PRIMARY KEY AUTOINCREMENT, nombre TEXT, apellido TEXT, email TEXT, telefono TEXT, empresa TEXT, fuente TEXT, mensaje TEXT, interes TEXT, lead_score INTEGER DEFAULT 0, estado TEXT DEFAULT 'nuevo', prioridad TEXT DEFAULT 'media', created_at TEXT); SELECT id, nombre, apellido, email FROM leads_sql1 WHERE email = '{{ $json.email }}' OR telefono = '{{ $json.telefono }}' LIMIT 1;\""
+      },
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        704,
+        400
+      ],
+      "id": "check-duplicate",
+      "name": "SQLite - Verificar Duplicado"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "is-duplicate",
+              "leftValue": "={{ $json.stdout || '' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.1,
+      "position": [
+        912,
+        400
+      ],
+      "id": "check-if-duplicate",
+      "name": "¿Es Duplicado?"
+    },
+    {
+      "parameters": {
+        "command": "=sqlite3 /home/node/.n8n/private_data.sqlite \"UPDATE leads_sql1 SET mensaje = '{{ $('Validar Datos').item.json.mensaje.replace(/'/g, \"''\") }}', interes = '{{ $('Validar Datos').item.json.interes }}', fuente = '{{ $('Validar Datos').item.json.fuente }}' WHERE email = '{{ $('Validar Datos').item.json.email }}';\""
+      },
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        1104,
+        256
+      ],
+      "id": "update-lead",
+      "name": "SQLite - Actualizar Lead"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Analiza el siguiente lead y asigna un score del 0 al 100:\\n\\n**Criterios:**\\n1. Completitud (20 pts): {{ $('Validar Datos').item.json.completitud_score }}%\\n2. Interés (30 pts): palabras clave, urgencia\\n3. Empresa (20 pts): mención de empresa\\n4. Urgencia (30 pts): indicadores temporales\\n\\n**Datos:**\\nNombre: {{ $('Validar Datos').item.json.nombre }} {{ $('Validar Datos').item.json.apellido }}\\nEmail: {{ $('Validar Datos').item.json.email }}\\nTeléfono: {{ $('Validar Datos').item.json.telefono }}\\nEmpresa: {{ $('Validar Datos').item.json.empresa }}\\nInterés: {{ $('Validar Datos').item.json.interes }}\\nMensaje: {{ $('Validar Datos').item.json.mensaje }}\\nFuente: {{ $('Validar Datos').item.json.fuente }}\\n\\n**Formato respuesta:**\\nScore: [0-100]\\nJustificación: [2 líneas]\\nUrgencia: [Baja/Media/Alta]\\nAcción: [contactar en X horas / seguimiento normal / lead frío]",
+        "options": {
+          "systemMessage": "Eres experto en calificación de leads B2B con 15 años de experiencia. Evalúa de forma objetiva. Mantén estándar alto para scores >80."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        544,
+        928
+      ],
+      "id": "ai-scoring",
+      "name": "AI Lead Scoring"
+    },
+    {
+      "parameters": {
+        "jsCode": "const leadData = $('Validar Datos').first().json;\nconst aiResponse = $input.first().json.output || 'Score: 50';\n\nconst scoreMatch = aiResponse.match(/Score:\\s*(\\d+)/i);\nconst score = scoreMatch ? parseInt(scoreMatch[1]) : 50;\n\nconst justMatch = aiResponse.match(/Justificación:\\s*([^\\n]+)/i);\nconst justificacion = justMatch ? justMatch[1].trim() : 'Sin justificación';\n\nconst urgMatch = aiResponse.match(/Urgencia:\\s*(Baja|Media|Alta)/i);\nconst urgencia = urgMatch ? urgMatch[1] : 'Media';\n\nlet clasificacion = score >= 80 ? 'Caliente' : score >= 60 ? 'Tibio' : 'Frío';\nlet prioridad = score >= 80 ? 'alta' : score >= 60 ? 'media' : 'baja';\n\nreturn {\n  ...leadData,\n  lead_score: score,\n  clasificacion: clasificacion,\n  prioridad: prioridad,\n  ai_justificacion: justificacion,\n  ai_urgencia: urgencia\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1312,
+        560
+      ],
+      "id": "process-score",
+      "name": "Procesar Score"
+    },
+    {
+      "parameters": {
+        "command": "=sqlite3 /home/node/.n8n/private_data.sqlite \"INSERT INTO leads_sql1 (nombre, apellido, email, telefono, empresa, fuente, mensaje, interes, lead_score, estado, prioridad, created_at) VALUES ('{{ $json.nombre }}', '{{ $json.apellido }}', '{{ $json.email }}', '{{ $json.telefono }}', '{{ $json.empresa }}', '{{ $json.fuente }}', '{{ $json.mensaje.replace(/'/g, \"''\") }}', '{{ $json.interes }}', {{ $json.lead_score }}, 'nuevo', '{{ $json.prioridad }}', '{{ $json.timestamp }}');\""
+      },
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        1504,
+        560
+      ],
+      "id": "insert-lead",
+      "name": "SQLite - Insertar Lead"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "is-hot",
+              "leftValue": "={{ $('Procesar Score').item.json.lead_score }}",
+              "rightValue": 80,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.1,
+      "position": [
+        1712,
+        560
+      ],
+      "id": "check-hot",
+      "name": "¿Lead Caliente?"
+    },
+    {
+      "parameters": {
+        "sendTo": "=gorkahvinsperecalders@gmail.com",
+        "subject": "=🔥 LEAD CALIENTE - {{ $('Procesar Score').item.json.nombre }} - Score: {{ $('Procesar Score').item.json.lead_score\n   }}/100",
+        "message": "=<div style=\"font-family: Arial; padding: 20px;\">\n    <h1 style=\"color: #ff4444;\">🔥 LEAD CALIENTE</h1>\n    <div style=\"background: #ff4444; color: white; padding: 15px; border-radius: 5px; text-align: center; font-size:\n   24px; font-weight: bold;\">\n      Score: {{ $('Procesar Score').item.json.lead_score }}/100\n    </div>\n    <h2>Información</h2>\n    <table style=\"width: 100%; border-collapse: collapse;\">\n      <tr>\n        <td style=\"padding: 10px; font-weight: bold; background: #f9f9f9;\">Nombre:</td>\n        <td style=\"padding: 10px;\">{{ $('Procesar Score').item.json.nombre }} {{ $('Procesar\n  Score').item.json.apellido }}</td>\n      </tr>\n      <tr>\n        <td style=\"padding: 10px; font-weight: bold; background: #f9f9f9;\">Email:</td>\n        <td style=\"padding: 10px;\"><a href=\"mailto:{{ $('Procesar Score').item.json.email }}\">{{ $('Procesar\n  Score').item.json.email }}</a></td>\n      </tr>\n      <tr>\n        <td style=\"padding: 10px; font-weight: bold; background: #f9f9f9;\">Teléfono:</td>\n        <td style=\"padding: 10px;\">{{ $('Procesar Score').item.json.telefono }}</td>\n      </tr>\n      <tr>\n        <td style=\"padding: 10px; font-weight: bold; background: #f9f9f9;\">Empresa:</td>\n        <td style=\"padding: 10px;\">{{ $('Procesar Score').item.json.empresa }}</td>\n      </tr>\n    </table>\n    <h3>Mensaje:</h3>\n    <div style=\"background: #f9f9f9; padding: 15px; border-left: 4px solid #ff4444;\">\n      {{ $('Procesar Score').item.json.mensaje }}\n    </div>\n    <h3>Análisis IA:</h3>\n    <div style=\"background: #e3f2fd; padding: 15px; border-radius: 5px;\">\n      <p><strong>Justificación:</strong> {{ $('Procesar Score').item.json.ai_justificacion }}</p>\n      <p><strong>Urgencia:</strong> {{ $('Procesar Score').item.json.ai_urgencia }}</p>\n    </div>\n    <div style=\"background: #fff3cd; padding: 20px; border-radius: 5px; text-align: center;\">\n      <p style=\"font-size: 18px; font-weight: bold;\">⚡ Contactar en 2 horas</p>\n    </div>\n  </div>",
+        "options": {
+          "replyTo": "={{ $('Procesar Score').item.json.email }}"
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1904,
+        464
+      ],
+      "id": "notify-hot",
+      "name": "Gmail - Notificar",
+      "webhookId": "bf2b0e94-22db-485b-bc8f-6baba0081362",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "0DPS2NcoZg6dGINB",
+          "name": "Gmail account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: '¡Gracias por tu interés! Te contactaremos pronto.', lead_score: $json.lead_score, clasificacion: $json.clasificacion, tiempo_respuesta: $json.lead_score >= 80 ? '2-4 horas' : $json.lead_score >= 60 ? '24 horas' : '48-72 horas' } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        2160,
+        672
+      ],
+      "id": "webhook-response",
+      "name": "Respuesta Webhook"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ success: true, message: 'Ya tienes tu información en nuestro sistema. Te contactaremos pronto.', lead_existente: true }",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1312,
+        256
+      ],
+      "id": "webhook-duplicate",
+      "name": "Respuesta Duplicado"
+    },
+    {
+      "parameters": {
+        "content": "## CAPTACIÓN LEADS - SQLite\n\n### Funcionalidades:\n✅ Webhook formularios web\n✅ Base de datos SQLite interna\n✅ Validación de datos\n✅ Detección duplicados\n✅ Calificación IA (0-100)\n✅ Notificación leads calientes\n✅ Sin dependencias externas\n\n### URL Webhook:\n`https://sql1.srv869945.hstgr.cloud/webhook/lead-capture`\n\n### Base de Datos:\n- **Ubicación**: `/home/node/.n8n/private_data.sqlite`\n- **Tabla**: `leads_sql1`\n\n### Request:\n```json\n{\n  \"nombre\": \"puma\",\n  \"apellido\": \"Pérez\",\n  \"email\": \"juan@example.com\",\n  \"telefono\": \"+34600123456\",\n  \"empresa\": \"Empresa Test\",\n  \"mensaje\": \"Necesito demo urgente\",\n  \"interes\": \"Automatización\"\n}\n```\n\n### Clasificación:\n- Caliente (80-100): 2-4h\n- Tibio (60-79): 24h\n- Frío (<60): 48-72h\n\n### Variables:\n- `CLIENT_ID`\n- `CONTACT_EMAIL`\n- `OPENAI_CREDENTIAL_ID`\n- `GMAIL_CREDENTIAL_ID`",
+        "height": 750,
+        "width": 450,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -304,
+        208
+      ],
+      "id": "sticky-note-info",
+      "name": "Info Workflow"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        416,
+        1136
+      ],
+      "id": "ce2e3ada-8f0e-4b3f-ba05-d89844109781",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "ldVfHCaN0ySWxI1E",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook Formulario Web": {
+      "main": [
+        [
+          {
+            "node": "Extraer Datos Formulario",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extraer Datos Formulario": {
+      "main": [
+        [
+          {
+            "node": "Validar Datos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar Datos": {
+      "main": [
+        [
+          {
+            "node": "SQLite - Verificar Duplicado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SQLite - Verificar Duplicado": {
+      "main": [
+        [
+          {
+            "node": "¿Es Duplicado?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Es Duplicado?": {
+      "main": [
+        [
+          {
+            "node": "SQLite - Actualizar Lead",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "AI Lead Scoring",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SQLite - Actualizar Lead": {
+      "main": [
+        [
+          {
+            "node": "Respuesta Duplicado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Lead Scoring": {
+      "main": [
+        [
+          {
+            "node": "Procesar Score",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Procesar Score": {
+      "main": [
+        [
+          {
+            "node": "SQLite - Insertar Lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SQLite - Insertar Lead": {
+      "main": [
+        [
+          {
+            "node": "¿Lead Caliente?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Lead Caliente?": {
+      "main": [
+        [
+          {
+            "node": "Gmail - Notificar",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respuesta Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail - Notificar": {
+      "main": [
+        [
+          {
+            "node": "Respuesta Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Lead Scoring",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "06adbd60-e241-498a-b6da-b41235ba9524",
+  "meta": {
+    "templateId": "captacion-leads-standard-v3-sqlite",
+    "templateCreatedBy": "puma",
+    "description": "Captación de leads con calificación IA, usando SQLite interno de n8n",
+    "templateCredsSetupCompleted": true,
+    "instanceId": "5779338d8ee6159c235c054c6cf7f1748d4de2d0e0f152f89b949f4153e3b610"
+  },
+  "id": "b0ANYS1ZB8DmoIAL",
+  "tags": []
+}
