@@ -1,0 +1,275 @@
+{
+  "name": "AGENTE WEB CHAT - Atención al Cliente 24/7 (SQLite)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "webchat-message",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        112,
+        400
+      ],
+      "id": "webhook-webchat",
+      "name": "Webhook Chat Web",
+      "webhookId": "webchat-message-webhook"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "session_id",
+              "name": "session_id",
+              "value": "={{ $json.body.session_id || $json.session_id || 'session_' + $now.toUnixInteger() }}",
+              "type": "string"
+            },
+            {
+              "id": "user_message",
+              "name": "user_message",
+              "value": "={{ $json.body.message || $json.message || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "user_name",
+              "name": "user_name",
+              "value": "={{ $json.body.name || $json.name || 'Usuario' }}",
+              "type": "string"
+            },
+            {
+              "id": "user_email",
+              "name": "user_email",
+              "value": "={{ $json.body.email || $json.email || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "page_url",
+              "name": "page_url",
+              "value": "={{ $json.body.page_url || $json.page_url || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "timestamp",
+              "name": "timestamp",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        304,
+        400
+      ],
+      "id": "extract-data",
+      "name": "Extraer Datos Mensaje"
+    },
+    {
+      "parameters": {
+        "command": "=sqlite3 /home/node/.n8n/private_data.sqlite \"CREATE TABLE IF NOT EXISTS chat_history_sql1 (id INTEGER PRIMARY KEY AUTOINCREMENT, session_id TEXT, role TEXT, content TEXT, timestamp TEXT); SELECT id, session_id, role, content, timestamp FROM chat_history_sql1 WHERE session_id = '{{ $json.session_id }}' ORDER BY id DESC LIMIT 10;\""
+      },
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        512,
+        400
+      ],
+      "id": "load-history",
+      "name": "SQLite - Cargar Historial"
+    },
+    {
+      "parameters": {
+        "jsCode": "const extractedData = $('Extraer Datos Mensaje').first().json;\nconst historyOutput = $input.first().json.stdout || '';\n\n// Parsear la salida de SQLite\nlet conversationHistory = '';\nif (historyOutput && historyOutput.trim() !== '') {\n  const lines = historyOutput.trim().split('\\n');\n  // Invertir para orden cronológico\n  lines.reverse();\n  \n  conversationHistory = lines.map(line => {\n    const parts = line.split('|');\n    if (parts.length >= 4) {\n      const role = parts[2];\n      const content = parts[3];\n      return `${role === 'user' ? 'Usuario' : 'Asistente'}: ${content}`;\n    }\n    return '';\n  }).filter(l => l).join('\\n');\n}\n\nreturn {\n  ...extractedData,\n  conversation_history: conversationHistory,\n  has_history: conversationHistory.length > 0\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        704,
+        400
+      ],
+      "id": "prepare-context",
+      "name": "Preparar Contexto Conversación"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.has_history ? 'Historial de conversación:\\n' + $json.conversation_history + '\\n\\n' : '' }}Nombre del usuario: {{ $json.user_name }}{{ $json.user_email ? '\\nEmail: ' + $json.user_email : '' }}\\n\\nMensaje actual:\\n{{ $json.user_message }}\\n\\nFecha y hora: {{ $json.timestamp }}\\nPágina web: {{ $json.page_url || 'No especificada' }}",
+        "options": {
+          "systemMessage": "# Rol\\nEres el asistente virtual de atención al cliente de puma, especializada en automatización con IA y soluciones empresariales.\\n\\nTu función es asistir a visitantes del sitio web de forma eficiente, profesional y amigable, respondiendo consultas sobre servicios, características, precios y soporte técnico.\\n\\n# Directrices de Respuesta\\n\\n## Tono y Estilo:\\n- **Profesional pero cercano y humano**\\n- Usa el nombre del usuario cuando lo tengas\\n- Sé conciso: respuestas de 2-4 líneas máximo (excepto cuando se requiera detalle)\\n- Evita jerga técnica innecesaria\\n- Muestra entusiasmo por ayudar\\n\\n## Servicios Principales:**\\n- Agentes de IA para WhatsApp, Email y Web (atención 24/7)\\n- Automatización de procesos empresariales\\n- Captación y calificación de leads con IA\\n- Análisis de datos y reporting automático\\n- Integración con sistemas existentes\\n\\n**Paquetes:**\\n- **Standard** ($99/mes): Agente WhatsApp + Gmail + Captación Leads\\n- **Premium** ($199/mes): Standard + Voice + Email Marketing + Facturas\\n- **NEXA** ($399/mes): Premium + Personal Assistant + Analytics + Videos IA\\n\\n**Horario de atención humana:**\\n- Lunes a Viernes: 9:00 - 18:00\\n- Atención IA: 24/7\\n\\n**Contactos:**\\n- Email: puma@gmail.com\\n- Respuesta promedio: 2-4 horas en horario laboral\\n\\n## IMPORTANTE\\n\\n- **NO inventes información** sobre características técnicas, precios exactos o plazos\\n- **NO prometas** nada que no puedas cumplir\\n- Si no sabes algo, di que un especialista responderá\\n- **NO uses formato Markdown** (nada de asteriscos, negritas, etc.) - texto simple\\n- Mantén respuestas **breves** (2-4 líneas) excepto cuando se pida detalle\\n- **Siempre termina con una pregunta** para mantener la conversación activa"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        832,
+        608
+      ],
+      "id": "ai-chat-agent",
+      "name": "AI Chat Agent"
+    },
+    {
+      "parameters": {
+        "command": "=sqlite3 /home/node/.n8n/private_data.sqlite \"INSERT INTO chat_history_sql1 (session_id, role, content, timestamp) VALUES ('{{ $('Extraer Datos Mensaje').item.json.session_id }}', 'user', '{{ $('Extraer Datos Mensaje').item.json.user_message.replace(/'/g, \"''\") }}', '{{ $('Extraer Datos Mensaje').item.json.timestamp }}'); INSERT INTO chat_history_sql1 (session_id, role, content, timestamp) VALUES ('{{ $('Extraer Datos Mensaje').item.json.session_id }}', 'assistant', '{{ $json.output.replace(/'/g, \"''\") }}', '{{ $now.toISO() }}');\""
+      },
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        1104,
+        400
+      ],
+      "id": "save-messages",
+      "name": "SQLite - Guardar Mensajes"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ \n{\n  \"success\": true,\n  \"message\": $('AI Chat Agent').item.json.output,\n  \"session_id\": $('Extraer Datos Mensaje').item.json.session_id,\n  \"timestamp\": $now.toISO()\n}\n}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1312,
+        400
+      ],
+      "id": "webhook-response",
+      "name": "Respuesta Webhook"
+    },
+    {
+      "parameters": {
+        "content": "## AGENTE WEB CHAT - SQLite\n\n### Funcionalidades:\n✅ Webhook para chat widget web\n✅ Base de datos SQLite interna de n8n\n✅ Memoria de conversación completa\n✅ Respuestas inteligentes con IA\n✅ Sin dependencias externas\n✅ Funciona desde el primer momento\n\n### URL del Webhook:\n`https://sql1.srv869945.hstgr.cloud/webhook/webchat-message`\n\n### Base de Datos:\n- **Ubicación**: `/home/node/.n8n/private_data.sqlite`\n- **Tabla**: `chat_history_sql1`\n- **Columnas**:\n  - id (INTEGER PRIMARY KEY)\n  - session_id (TEXT)\n  - role (TEXT)\n  - content (TEXT)\n  - timestamp (TEXT)\n\n### Campos del Request:\n```json\n{\n  \"message\": \"Hola, necesito ayuda\",\n  \"session_id\": \"session_123\",\n  \"name\": \"puma\",\n  \"email\": \"juan@example.com\",\n  \"page_url\": \"https://example.com/contact\"\n}\n```\n\n### Response:\n```json\n{\n  \"success\": true,\n  \"message\": \"Respuesta del AI...\",\n  \"session_id\": \"session_123\",\n  \"timestamp\": \"2025-01-12T10:30:00Z\"\n}\n```\n\n### Variables de Entorno:\n- `CLIENT_ID`\n- `COMPANY_NAME`\n- `CONTACT_EMAIL`\n- `OPENAI_CREDENTIAL_ID`",
+        "height": 600,
+        "width": 400,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -256,
+        256
+      ],
+      "id": "sticky-note-info",
+      "name": "Info Workflow"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        688,
+        816
+      ],
+      "id": "14361930-3ddd-476c-a89a-7931781e9368",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "ldVfHCaN0ySWxI1E",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook Chat Web": {
+      "main": [
+        [
+          {
+            "node": "Extraer Datos Mensaje",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extraer Datos Mensaje": {
+      "main": [
+        [
+          {
+            "node": "SQLite - Cargar Historial",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SQLite - Cargar Historial": {
+      "main": [
+        [
+          {
+            "node": "Preparar Contexto Conversación",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar Contexto Conversación": {
+      "main": [
+        [
+          {
+            "node": "AI Chat Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Chat Agent": {
+      "main": [
+        [
+          {
+            "node": "SQLite - Guardar Mensajes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SQLite - Guardar Mensajes": {
+      "main": [
+        [
+          {
+            "node": "Respuesta Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Chat Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "5aad58bc-9613-4533-bfe2-3c47bc5262de",
+  "meta": {
+    "templateId": "agent-web-chat-standard-v3-sqlite",
+    "templateCreatedBy": "puma",
+    "description": "Agente de chat web 24/7 con IA conversacional, usando SQLite interno de n8n",
+    "templateCredsSetupCompleted": true,
+    "instanceId": "5779338d8ee6159c235c054c6cf7f1748d4de2d0e0f152f89b949f4153e3b610"
+  },
+  "id": "Za0wpqAVldmYfKAg",
+  "tags": []
+}
