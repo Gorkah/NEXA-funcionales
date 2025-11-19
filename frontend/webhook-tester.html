@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tester Webhooks n8n - Captación Leads & Webchat</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+      --bg: #0f172a;
+      --fg: #f8fafc;
+      --card: #1e293b;
+      --card-border: #334155;
+      --accent: #38bdf8;
+      --accent-strong: #0284c7;
+      --success: #22c55e;
+      --error: #ef4444;
+      --warning: #facc15;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 32px;
+      min-height: 100vh;
+      background: radial-gradient(circle at top, rgba(56, 189, 248, 0.15), transparent 60%), var(--bg);
+      color: var(--fg);
+    }
+
+    h1 {
+      margin-top: 0;
+      font-size: clamp(1.8rem, 3vw, 2.6rem);
+      letter-spacing: -0.02em;
+    }
+
+    p.lead {
+      color: #94a3b8;
+      max-width: 60ch;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 32px;
+    }
+
+    .card {
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid var(--card-border);
+      border-radius: 18px;
+      padding: 24px;
+      box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.7);
+      backdrop-filter: blur(12px);
+    }
+
+    .card h2 {
+      margin-top: 0;
+      font-size: 1.4rem;
+    }
+
+    label {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 0.9rem;
+      color: #cbd5f5;
+    }
+
+    input,
+    select,
+    textarea {
+      border: 1px solid #475569;
+      border-radius: 12px;
+      padding: 12px;
+      font: inherit;
+      background: rgba(15, 23, 42, 0.6);
+      color: var(--fg);
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.25);
+      outline: none;
+    }
+
+    textarea {
+      min-height: 110px;
+      resize: vertical;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      margin-top: 8px;
+    }
+
+    button {
+      border: none;
+      border-radius: 999px;
+      padding: 12px 24px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.15s;
+      background: linear-gradient(120deg, var(--accent), var(--accent-strong));
+      color: #032030;
+      box-shadow: 0 12px 24px rgba(2, 132, 199, 0.35);
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    button:not(:disabled):active {
+      transform: translateY(1px);
+    }
+
+    .endpoint {
+      font-size: 0.85rem;
+      color: #94a3b8;
+      margin-bottom: 16px;
+      word-break: break-all;
+    }
+
+    .endpoint-control {
+      margin-bottom: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .endpoint-control label {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #cbd5f5;
+    }
+
+    .endpoint-control input {
+      width: 100%;
+      font-size: 0.85rem;
+    }
+
+    .endpoint-control small {
+      color: #64748b;
+      font-size: 0.75rem;
+    }
+
+    pre {
+      background: #020617;
+      border-radius: 14px;
+      padding: 16px;
+      border: 1px solid #1e293b;
+      overflow-x: auto;
+      max-height: 320px;
+      font-size: 0.9rem;
+      line-height: 1.45;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.85rem;
+      padding: 6px 14px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid #334155;
+    }
+
+    .status-pill[data-state="success"] {
+      color: var(--success);
+      border-color: rgba(34, 197, 94, 0.6);
+    }
+
+    .status-pill[data-state="error"] {
+      color: var(--error);
+      border-color: rgba(239, 68, 68, 0.6);
+    }
+
+    .log {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .chat-window {
+      border: 1px solid #1e293b;
+      border-radius: 18px;
+      background: rgba(2, 6, 23, 0.85);
+      padding: 16px;
+      height: clamp(220px, 35vh, 360px);
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      scroll-behavior: smooth;
+    }
+
+    .chat-placeholder {
+      text-align: center;
+      color: #64748b;
+      font-size: 0.9rem;
+    }
+
+    .bubble {
+      max-width: 80%;
+      padding: 12px 16px;
+      border-radius: 20px;
+      position: relative;
+      line-height: 1.45;
+      font-size: 0.95rem;
+      word-wrap: break-word;
+      box-shadow: 0 10px 20px rgba(15, 23, 42, 0.4);
+    }
+
+    .bubble.user {
+      align-self: flex-end;
+      background: linear-gradient(120deg, var(--accent), var(--accent-strong));
+      color: #012235;
+      border-bottom-right-radius: 6px;
+    }
+
+    .bubble.bot {
+      align-self: flex-start;
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(56, 189, 248, 0.2);
+      border-bottom-left-radius: 6px;
+    }
+
+    .bubble .author {
+      display: block;
+      font-size: 0.75rem;
+      opacity: 0.7;
+      margin-bottom: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .bubble.typing {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      min-width: 120px;
+    }
+
+    .typing .dots {
+      display: flex;
+      gap: 6px;
+    }
+
+    .typing .dots span {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: currentColor;
+      opacity: 0.7;
+      animation: bounce 1s infinite ease-in-out;
+    }
+
+    .typing .dots span:nth-child(2) {
+      animation-delay: 0.15s;
+    }
+
+    .typing .dots span:nth-child(3) {
+      animation-delay: 0.3s;
+    }
+
+    @keyframes bounce {
+      0%,
+      80%,
+      100% {
+        transform: translateY(0);
+        opacity: 0.5;
+      }
+      40% {
+        transform: translateY(-6px);
+        opacity: 1;
+      }
+    }
+
+    @media (max-width: 640px) {
+      body {
+        padding: 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Tester Webhooks n8n</h1>
+    <p class="lead">
+      Simulador ligero para validar el flujo de captación de leads y el chatbot conectado
+      al workflow productivo de n8n. Completa los formularios, envía y revisa la respuesta JSON en vivo.
+    </p>
+  </header>
+
+  <div class="grid">
+    <section class="card" id="lead-card">
+      <h2>Formulario Captación de Leads</h2>
+      <p class="endpoint">
+        Endpoint producción: <code>https://sql1.srv869945.hstgr.cloud/webhook/lead-capture</code>
+      </p>
+
+      <div class="endpoint-control">
+        <label for="lead-endpoint-input">Endpoint actual</label>
+        <input id="lead-endpoint-input" type="url" value="https://sql1.srv869945.hstgr.cloud/webhook/lead-capture" />
+        <small>Puedes reemplazarlo para probar otros entornos.</small>
+      </div>
+
+      <form id="lead-form">
+        <div class="form-grid">
+          <label>Nombre
+            <input name="nombre" placeholder="Alex" required />
+          </label>
+          <label>Apellido
+            <input name="apellido" placeholder="Ramírez" />
+          </label>
+          <label>Email
+            <input type="email" name="email" placeholder="alex@empresa.com" required />
+          </label>
+          <label>Teléfono
+            <input name="telefono" placeholder="+34600123456" />
+          </label>
+          <label>Empresa
+            <input name="empresa" placeholder="Empresa Test" />
+          </label>
+          <label>Interés
+            <select name="interes">
+              <option value="General">General</option>
+              <option value="Automatización">Automatización</option>
+              <option value="Consultoría Premium">Consultoría Premium</option>
+              <option value="Demo Urgente">Demo Urgente</option>
+            </select>
+          </label>
+          <label>Fuente
+            <select name="fuente">
+              <option value="Formulario Web">Formulario Web</option>
+              <option value="Google Ads">Google Ads</option>
+              <option value="LinkedIn">LinkedIn</option>
+              <option value="Evento">Evento</option>
+            </select>
+          </label>
+        </div>
+        <label>Mensaje
+          <textarea name="mensaje" placeholder="Describe tu necesidad..." required></textarea>
+        </label>
+
+        <div class="actions">
+          <button type="submit">Enviar lead</button>
+          <span class="status-pill" id="lead-status" hidden>Listo para enviar</span>
+        </div>
+      </form>
+
+      <div class="log">
+        <div>
+          <h3>Respuesta</h3>
+          <pre id="lead-response">Aún no se ha enviado nada.</pre>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" id="chat-card">
+      <h2>Tester Chatbot Web</h2>
+      <p class="endpoint">
+        Endpoint producción: <code>https://sql1.srv869945.hstgr.cloud/webhook/webchat-message</code>
+      </p>
+
+      <div class="endpoint-control">
+        <label for="chat-endpoint-input">Endpoint actual</label>
+        <input id="chat-endpoint-input" type="url" value="https://sql1.srv869945.hstgr.cloud/webhook/webchat-message" />
+        <small>Puedes alternar aquí para probar staging u otras instancias.</small>
+      </div>
+
+      <form id="chat-form">
+        <div class="form-grid">
+          <label>Nombre
+            <input name="name" placeholder="Alex" required />
+          </label>
+          <label>Email
+            <input type="email" name="email" placeholder="alex@empresa.com" required />
+          </label>
+          <label>ID sesión
+            <input name="session_id" placeholder="sesion-prueba-001" value="sesion-prueba-001" />
+          </label>
+        </div>
+        <label>Mensaje
+          <textarea name="message" placeholder="Escribe tu pregunta..." required></textarea>
+        </label>
+
+        <div class="actions">
+          <button type="submit">Enviar mensaje</button>
+          <span class="status-pill" id="chat-status" hidden>Listo para enviar</span>
+        </div>
+      </form>
+
+      <div class="log">
+        <div>
+          <h3>Sesión en vivo</h3>
+          <div class="chat-window" id="chat-window">
+            <div class="chat-placeholder" id="chat-placeholder">Todavía no hay mensajes. Escribe algo para iniciar la conversación.</div>
+          </div>
+        </div>
+
+        <div>
+          <h3>Respuesta cruda</h3>
+          <pre id="chat-response">Aún no se ha enviado nada.</pre>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const DEFAULT_ENDPOINTS = {
+      lead: "https://sql1.srv869945.hstgr.cloud/webhook/lead-capture",
+      chat: "https://sql1.srv869945.hstgr.cloud/webhook/webchat-message",
+    };
+
+    const endpoints = { ...DEFAULT_ENDPOINTS };
+
+    const leadForm = document.getElementById("lead-form");
+    const leadResponse = document.getElementById("lead-response");
+    const leadStatus = document.getElementById("lead-status");
+    const leadEndpointInput = document.getElementById("lead-endpoint-input");
+
+    const chatForm = document.getElementById("chat-form");
+    const chatResponse = document.getElementById("chat-response");
+    const chatStatus = document.getElementById("chat-status");
+    const chatWindow = document.getElementById("chat-window");
+    const chatPlaceholder = document.getElementById("chat-placeholder");
+    const chatEndpointInput = document.getElementById("chat-endpoint-input");
+
+    let typingBubble = null;
+
+    const setStatus = (el, state, text) => {
+      if (!text) {
+        el.hidden = true;
+        return;
+      }
+      el.textContent = text;
+      el.dataset.state = state;
+      el.hidden = false;
+    };
+
+    const pretty = (payload) => JSON.stringify(payload, null, 2);
+
+    const postJson = async (url, payload) => {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json().catch(() => ({ error: "JSON inválido" }));
+
+      if (!response.ok) {
+        throw { status: response.status, data };
+      }
+
+      return data;
+    };
+
+    const bindEndpointInput = (input, key) => {
+      if (!input) return;
+      input.addEventListener("change", () => {
+        const value = input.value.trim();
+        endpoints[key] = value || DEFAULT_ENDPOINTS[key];
+        input.value = endpoints[key];
+      });
+    };
+
+    bindEndpointInput(leadEndpointInput, "lead");
+    bindEndpointInput(chatEndpointInput, "chat");
+
+    leadForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const formData = new FormData(leadForm);
+      const payload = Object.fromEntries(formData.entries());
+
+      setStatus(leadStatus, "pending", "Enviando...");
+      leadForm.querySelector("button").disabled = true;
+
+      try {
+        const data = await postJson(endpoints.lead, payload);
+        leadResponse.textContent = pretty(data);
+        setStatus(leadStatus, "success", "Lead enviado ✔");
+      } catch (error) {
+        leadResponse.textContent = pretty(error);
+        setStatus(leadStatus, "error", `Error (${error.status || "¿CORS?"})`);
+        console.error("Lead error", error);
+      } finally {
+        leadForm.querySelector("button").disabled = false;
+      }
+    });
+
+    chatForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const formData = new FormData(chatForm);
+      const payload = Object.fromEntries(formData.entries());
+
+      setStatus(chatStatus, "pending", "Enviando...");
+      chatForm.querySelector("button").disabled = true;
+
+      appendBubble("user", payload.name || "Usuario", payload.message);
+      showTypingIndicator();
+
+      try {
+        const data = await postJson(endpoints.chat, payload);
+        hideTypingIndicator();
+        chatResponse.textContent = pretty(data);
+        appendBubble("bot", "Bot", data.message || "(sin mensaje)");
+        setStatus(chatStatus, "success", "Mensaje enviado ✔");
+        chatForm.message.value = "";
+        chatForm.message.focus();
+      } catch (error) {
+        hideTypingIndicator();
+        chatResponse.textContent = pretty(error);
+        setStatus(chatStatus, "error", `Error (${error.status || "¿CORS?"})`);
+        const errorMessage = error?.data?.message || `No se pudo obtener respuesta (código ${error.status || "desconocido"}).`;
+        appendBubble("bot", "Bot", `⚠️ ${errorMessage}`);
+        console.error("Chat error", error);
+      } finally {
+        chatForm.querySelector("button").disabled = false;
+      }
+    });
+
+    const appendBubble = (type, author, text) => {
+      if (chatPlaceholder) {
+        chatPlaceholder.remove();
+      }
+
+      const bubble = document.createElement("div");
+      bubble.className = `bubble ${type}`;
+      bubble.innerHTML = `<span class="author">${author}</span>${text.replace(/\n/g, "<br>")}`;
+      chatWindow.appendChild(bubble);
+      chatWindow.scrollTop = chatWindow.scrollHeight;
+    };
+
+    const showTypingIndicator = () => {
+      hideTypingIndicator();
+      typingBubble = document.createElement("div");
+      typingBubble.className = "bubble bot typing";
+      typingBubble.innerHTML = `<span class="author">Bot</span><div class="dots"><span></span><span></span><span></span></div>`;
+      chatWindow.appendChild(typingBubble);
+      chatWindow.scrollTop = chatWindow.scrollHeight;
+    };
+
+    const hideTypingIndicator = () => {
+      if (typingBubble && typingBubble.parentNode) {
+        typingBubble.remove();
+      }
+      typingBubble = null;
+    };
+  </script>
+</body>
+</html>
