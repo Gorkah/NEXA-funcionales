@@ -1,0 +1,436 @@
+{
+  "name": "Email Icebreaker - Corregido y Funcional 2025",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 10
+            }
+          ]
+        }
+      },
+      "id": "12e42136-b02f-4c6b-9762-3f24f6b98876",
+      "name": "Ejecutar Diariamente",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -1488,
+        448
+      ]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "zona_objetivo",
+              "value": "Barcelona"
+            },
+            {
+              "name": "sector_objetivo",
+              "value": "b2b"
+            },
+            {
+              "name": "campana_nombre",
+              "value": "ventas"
+            },
+            {
+              "name": "emails_por_dia",
+              "value": "20"
+            },
+            {
+              "name": "TuNombre",
+              "value": "Gorka"
+            },
+            {
+              "name": "TuEmpresa",
+              "value": "PumaAI"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d170b7ea-a16b-451f-8411-78fc6464a949",
+      "name": "Configuración",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [
+        -1360,
+        448
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1hBETV13sYGAkTrLnLmMae5nrHa9E0zNSgKSx8xReaZ0",
+          "mode": "list",
+          "cachedResultName": "testing n8n",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1hBETV13sYGAkTrLnLmMae5nrHa9E0zNSgKSx8xReaZ0/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "leads",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "fe8d9d10-dcb1-4e51-8e00-0a16638cd833",
+      "name": "Google Sheets - Leer Leads",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 3,
+      "position": [
+        -1168,
+        448
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "oYdByuwpHiNH0YRW",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nreturn items.filter(i => {\n  const status =\n    i.json.Estado ||\n    i.json.estado ||\n    i.json.Status ||\n    i.json[\"Status \"] ||\n    i.json.status ||\n    \"\";\n\n  return status.toString().trim().toLowerCase() === \"pendiente\";\n});\n"
+      },
+      "id": "72c88b69-fb8f-4710-a7cc-b68acedc0d38",
+      "name": "Filtrar Pendientes",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -896,
+        448
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const limit = $('Configuración').item.json.emails_por_dia; return items.slice(0, limit);"
+      },
+      "id": "5e8ee2c2-d401-44cc-a5a6-d82461dc168f",
+      "name": "Limitar a emails_por_dia",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -688,
+        448
+      ]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "4f7893f5-8007-4900-9303-da0ee0ff441b",
+      "name": "Procesar uno a uno",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 2,
+      "position": [
+        -496,
+        448
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Eres un experto en cold-emailing personalizado.\n\n### Campaña\n- Zona: {{ $('Configuración').item.json.zona_objetivo }}\n- Sector: {{ $('Configuración').item.json.sector_objetivo }}\n- Campaña: {{ $('Configuración').item.json.campana_nombre }}\n- Nombre: {{ $('Configuración').item.json.TuNombre }}\n- Empresa: {{ $('Configuración').item.json.TuEmpresa }}\n\n\n### Prospecto\n- Nombre: {{ $json.Nombre }}\n- Empresa: {{ $json.Empresa }}\n- Puesto: {{ $json.Puesto }}\n- Info: {{ $json.InformaciónRelevante }}\n\n### Tarea\nDevuelve SOLO JSON válido:\n\n{\n  \"subject\": \"...\",\n  \"body\": \"...\"\n}\n",
+        "options": {
+          "systemMessage": "Eres un asistente JSON estricto. SOLO devuelves JSON válido sin markdown."
+        }
+      },
+      "id": "acfd95b6-8a79-4392-92a9-555e586c9113",
+      "name": "IA - Crear Email",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        -288,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "let raw = $input.first().json.output || $input.first().json.text || $input.first().json.result;\nraw = raw.replace(/```json/g,'').replace(/```/g,'');\nconst parsed = JSON.parse(raw);\n\nreturn {\n  json: {\n    $json,\n    email_subject: parsed.subject,\n    email_body: parsed.body\n  }\n};"
+      },
+      "id": "5a5fbc5f-38b3-4551-bfa6-f41d34252c83",
+      "name": "Procesar JSON IA",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "unit": "seconds"
+      },
+      "id": "875d636d-a6ba-413b-99b8-6592443859a2",
+      "name": "Esperar 10s",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [
+        144,
+        224
+      ],
+      "webhookId": "26649a12-2d9a-41ec-938d-5c383bfc5ccb"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Code in JavaScript').item.json.Email }}",
+        "subject": "={{ $json.email_subject }}",
+        "message": "={{ $json.email_body }}",
+        "options": {
+          "replyTo": "={{ $('Code in JavaScript').item.json.Email }}"
+        }
+      },
+      "id": "5f4c9639-7acb-40c3-9eb8-655603c40d8d",
+      "name": "Enviar Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        288,
+        160
+      ],
+      "webhookId": "9e745b77-d50e-480d-bcf0-8c3781d6c96b",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "ncXVwS6DtZb5faOZ",
+          "name": "Gmail account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1hBETV13sYGAkTrLnLmMae5nrHa9E0zNSgKSx8xReaZ0",
+          "mode": "list"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "leads",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1hBETV13sYGAkTrLnLmMae5nrHa9E0zNSgKSx8xReaZ0/edit#gid=0"
+        },
+        "columnToMatchOn": "Email",
+        "valueToMatchOn": "={{ $('Google Sheets - Leer Leads').item.json.Email }}",
+        "fieldsUi": {
+          "values": [
+            {
+              "column": "Estado",
+              "fieldValue": "={{$json.Estado || 'enviado'}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "2509799b-3923-4b17-b17f-70c9cd393ed0",
+      "name": "Actualizar Status",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 3,
+      "position": [
+        320,
+        448
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "oYdByuwpHiNH0YRW",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -832,
+        160
+      ],
+      "id": "3e92632a-6ae1-4ad9-8a37-af8892dc71f4",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "nr9q9VY1uHscSSEq",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nreturn items.map(item => {\n  const row = item.json;\n\n  return {\n    json: {\n      row_number: row.row_number,\n      Email: row.Email,\n      Nombre: row.Nombre,\n      Empresa: row.Empresa,\n      Cargo: row.Cargo,\n      Puesto: row.Cargo,\n      InformaciónRelevante: row[\"InformaciónRelevante\"] || row.Nota || \"\",\n      Estado: row.Estado\n    }\n  };\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1056,
+        688
+      ],
+      "id": "c646b060-948b-4b6f-b81c-8da2d1eff898",
+      "name": "Code in JavaScript"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Ejecutar Diariamente": {
+      "main": [
+        [
+          {
+            "node": "Configuración",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Configuración": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets - Leer Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Sheets - Leer Leads": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filtrar Pendientes": {
+      "main": [
+        [
+          {
+            "node": "Limitar a emails_por_dia",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Limitar a emails_por_dia": {
+      "main": [
+        [
+          {
+            "node": "Procesar uno a uno",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Procesar uno a uno": {
+      "main": [
+        [
+          {
+            "node": "IA - Crear Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IA - Crear Email": {
+      "main": [
+        [
+          {
+            "node": "Procesar JSON IA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Procesar JSON IA": {
+      "main": [
+        [
+          {
+            "node": "Esperar 10s",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar Email": {
+      "main": [
+        [
+          {
+            "node": "Actualizar Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Actualizar Status": {
+      "main": [
+        [
+          {
+            "node": "Procesar uno a uno",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Esperar 10s": {
+      "main": [
+        [
+          {
+            "node": "Enviar Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "IA - Crear Email",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Filtrar Pendientes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "dbbcd013-1b30-4996-bc37-a85b5aa69ede",
+  "meta": {
+    "instanceId": "f2d976ac820a993756afa7a65a73c4005d7455fac46d1ab6b9794f31dd00df0b"
+  },
+  "id": "aOcJnPdEWn1YfVGR",
+  "tags": []
+}
