@@ -1,0 +1,651 @@
+{
+  "name": "Telegram - Leads y Resumen (SQLite)",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        1472,
+        944
+      ],
+      "id": "1cf22245-67c0-4cb1-8118-a4fa5e47480f",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "nr9q9VY1uHscSSEq",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        304,
+        640
+      ],
+      "id": "5e83e15b-28d1-4f1d-997c-b1a9a328181f",
+      "name": "Telegram Trigger1",
+      "webhookId": "telegram-leads-resumen-webhook",
+      "credentials": {
+        "telegramApi": {
+          "id": "Au8Ajse28MQyU8GU",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "is-leads",
+              "leftValue": "={{ $json.message.text || '' }}",
+              "rightValue": "/leads",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        544,
+        512
+      ],
+      "id": "e203de09-dbed-4fa3-aee4-a0f1f0621b61",
+      "name": "IF /leads1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "is-resumen",
+              "leftValue": "={{ $json.message.text || '' }}",
+              "rightValue": "/resumen",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        784,
+        720
+      ],
+      "id": "815273c3-e7ee-45c4-abd9-bdd630370823",
+      "name": "IF /resumen1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "is-emails",
+              "leftValue": "={{ $json.message.text || '' }}",
+              "rightValue": "/emails",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1024,
+        1040
+      ],
+      "id": "if-emails-check",
+      "name": "IF /emails"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1hBETV13sYGAkTrLnLmMae5nrHa9E0zNSgKSx8xReaZ0",
+          "mode": "list",
+          "cachedResultName": "testing n8n",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1hBETV13sYGAkTrLnLmMae5nrHa9E0zNSgKSx8xReaZ0/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "leads",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1024,
+        368
+      ],
+      "id": "1d7c4f82-38ba-47c0-a814-7d9f34752804",
+      "name": "Google Sheets - Leads (comando /leads)",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "oYdByuwpHiNH0YRW",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Obtener datos de Google Sheets\nconst data = $input.all().map(item => item.json);\n\nif (!Array.isArray(data) || data.length === 0) {\n  return [{ text: 'No hay leads registrados todavía.' }];\n}\n\n// Tomar los últimos 5 registros\nconst displayData = data.slice(-5).reverse();\n\nif (displayData.length === 0) {\n  return [{ text: 'No hay leads registrados todavía.' }];\n}\n\nconst lines = displayData.map((l, i) => {\n  const nombre = l.Nombre || 'Sin nombre';\n  const empresa = l.Empresa || 'Sin empresa';\n  const cargo = l.Cargo || '-';\n  const estado = l.Estado || '-';\n  const email = l.Email || '-';\n  const info = l.InformaciónRelevante || l.InformacionRelevante || '';\n  \n  return `#${i + 1} - *${nombre}* (${empresa})\\nCargo: ${cargo} | Estado: ${estado}${info ? '\\n📋 Info: ' + info : ''}\\n📧 Email: ${email}`;\n});\n\nconst message = `📥 *Últimos ${displayData.length} leads*\\n\\n` + lines.join('\\n\\n');\n\nreturn [{ text: message }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1264,
+        368
+      ],
+      "id": "257bbf50-4698-4b9e-adea-a77ebf9cb927",
+      "name": "Leads - Formatear mensaje1"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger1').item.json.message.chat.id }}",
+        "text": "={{ $json.text }}",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1536,
+        368
+      ],
+      "id": "1cefba28-89e1-4287-b710-a937e3a85eae",
+      "name": "Telegram - Enviar Leads1",
+      "webhookId": "2f3c3415-1604-4545-b0b3-f764b9dc1a12",
+      "credentials": {
+        "telegramApi": {
+          "id": "Au8Ajse28MQyU8GU",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const baseText =  $('Resumen - Formatear mensaje').first().json.text|| '';\nconst aiText = $input.first().json.output || '';\n\nconst finalText = baseText + '\\n\\n🧠 Resumen IA\\n' + (aiText || 'No se pudo generar el resumen IA.');\n\nreturn [{ text: finalText }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2224,
+        912
+      ],
+      "id": "17ed3ec5-4198-4870-9762-5a41b863dd21",
+      "name": "Resumen - Añadir IA1"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger1').first().json.message.chat.id }}",
+        "text": "={{ $json.text }}",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2272,
+        672
+      ],
+      "id": "d959ae4b-5bf5-454a-b76c-b91b95b2145f",
+      "name": "Telegram - Enviar Resumen1",
+      "webhookId": "a7858016-74a1-4a15-8e0e-f869391d1168",
+      "credentials": {
+        "telegramApi": {
+          "id": "Au8Ajse28MQyU8GU",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger1').item.json.message.chat.id }}",
+        "text": "Comandos disponibles:\\n/leads - Últimos leads registrados\\n/emails - Resumen de emails enviados (esta semana)\\n/resumen - Resumen completo de leads, facturas y emails",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1056,
+        896
+      ],
+      "id": "26d66764-c269-44a0-82b2-6e1f5f9c5753",
+      "name": "Telegram - Ayuda1",
+      "webhookId": "7e446122-eb85-444c-af90-65d879826aae",
+      "credentials": {
+        "telegramApi": {
+          "id": "Au8Ajse28MQyU8GU",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "returnAll": false,
+        "limit": 50,
+        "simple": false,
+        "filters": {
+          "labelIds": [],
+          "sender": "={{ $('Telegram Trigger1').item.json.message.from.username }}@gmail.com",
+          "query": "in:sent after:{{ $now.startOf('week').toFormat('yyyy/MM/dd') }}"
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1280,
+        1040
+      ],
+      "id": "gmail-get-sent-emails",
+      "name": "Gmail - Obtener Enviados",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "GMAIL_CREDENTIAL_ID",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Obtener emails enviados\nconst sentEmails = $input.all().map(item => item.json);\n\nif (!sentEmails || sentEmails.length === 0) {\n  return [{ text: '📧 No se encontraron emails enviados esta semana.' }];\n}\n\n// Agrupar emails por threadId para detectar respuestas\nconst threads = {};\nsentEmails.forEach(email => {\n  const threadId = email.threadId;\n  if (!threads[threadId]) {\n    threads[threadId] = [];\n  }\n  threads[threadId].push(email);\n});\n\n// Analizar cada thread\nconst emailSummaries = [];\n\nObject.values(threads).slice(0, 10).forEach(thread => {\n  // El primer email del thread es el enviado original\n  const originalEmail = thread[0];\n  const hasResponse = thread.length > 1;\n  \n  const subject = originalEmail.subject || 'Sin asunto';\n  const to = originalEmail.to?.map(t => t.address || t).join(', ') || 'Desconocido';\n  const date = originalEmail.date ? new Date(originalEmail.date).toLocaleDateString('es-ES') : 'Fecha desconocida';\n  const snippet = originalEmail.snippet || '';\n  \n  let summary = `📨 *${subject}*\\nPara: ${to}\\nFecha: ${date}`;\n  \n  if (hasResponse) {\n    summary += `\\n✅ *Respuesta recibida* (${thread.length - 1} respuesta(s))`;\n    const lastResponse = thread[thread.length - 1];\n    const responseSnippet = lastResponse.snippet || '';\n    if (responseSnippet) {\n      summary += `\\n💬 Última respuesta: \"${responseSnippet.substring(0, 100)}...\"`;\n    }\n  } else {\n    summary += `\\n⏳ *Sin respuesta aún*`;\n  }\n  \n  if (snippet) {\n    summary += `\\n📝 Enviado: \"${snippet.substring(0, 100)}...\"`;  \n  }\n  \n  emailSummaries.push(summary);\n});\n\nconst message = \n  `📧 *Resumen de Emails (esta semana)*\\n\\n` +\n  `Total enviados: ${sentEmails.length}\\n` +\n  `Con respuesta: ${Object.values(threads).filter(t => t.length > 1).length}\\n` +\n  `Sin respuesta: ${Object.values(threads).filter(t => t.length === 1).length}\\n\\n` +\n  `*Últimos 10 emails:*\\n\\n` +\n  emailSummaries.join('\\n\\n───────────\\n\\n');\n\nreturn [{ text: message, emailsData: sentEmails, threads: threads }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1520,
+        1040
+      ],
+      "id": "code-process-emails",
+      "name": "Procesar Emails"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger1').item.json.message.chat.id }}",
+        "text": "={{ $json.text }}",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1760,
+        1040
+      ],
+      "id": "telegram-send-emails",
+      "name": "Telegram - Enviar Emails",
+      "webhookId": "telegram-emails-webhook",
+      "credentials": {
+        "telegramApi": {
+          "id": "Au8Ajse28MQyU8GU",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "returnAll": false,
+        "limit": 50,
+        "simple": false,
+        "filters": {
+          "labelIds": [],
+          "query": "in:sent after:{{ $now.startOf('week').toFormat('yyyy/MM/dd') }}"
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1696,
+        1680
+      ],
+      "id": "gmail-get-sent-for-resumen",
+      "name": "Gmail - Enviados (resumen)",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "GMAIL_CREDENTIAL_ID",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1hBETV13sYGAkTrLnLmMae5nrHa9E0zNSgKSx8xReaZ0",
+          "mode": "list",
+          "cachedResultName": "testing n8n",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1hBETV13sYGAkTrLnLmMae5nrHa9E0zNSgKSx8xReaZ0/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "facturas",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        976,
+        1424
+      ],
+      "id": "3c1568ad-300c-4a4b-965c-96cae5cbdafe",
+      "name": "Google Sheets - Facturas (resumen)",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "oYdByuwpHiNH0YRW",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1hBETV13sYGAkTrLnLmMae5nrHa9E0zNSgKSx8xReaZ0",
+          "mode": "list",
+          "cachedResultName": "testing n8n",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1hBETV13sYGAkTrLnLmMae5nrHa9E0zNSgKSx8xReaZ0/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "leads",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1216,
+        1424
+      ],
+      "id": "ac9c4bdc-1b39-4b48-a7ea-9cada763c63a",
+      "name": "Google Sheets - Leads (resumen)"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Obtener datos de Google Sheets y Gmail\nconst facturasData = $('Google Sheets - Facturas (resumen)').all().map(i => i.json);\nconst leadsData = $('Google Sheets - Leads (resumen)').all().map(i => i.json);\nconst emailsData = $('Gmail - Enviados (resumen)').all().map(i => i.json);\n\n// Función para formatear moneda\nfunction money(n) {\n  const num = typeof n === 'number' ? n : parseFloat((n || '0').toString().replace(',', '.'));\n  if (isNaN(num)) return '0.00 €';\n  return num.toFixed(2) + ' €';\n}\n\n// Procesar facturas (asumiendo que existen columnas similares)\nconst numFacturas = facturasData.length;\nconst totalGastado = facturasData.reduce((sum, f) => {\n  const total = parseFloat((f.Total || f.total || '0').toString().replace(',', '.'));\n  return sum + (isNaN(total) ? 0 : total);\n}, 0);\n\n// Agrupar facturas por categoría\nconst categorias = {};\nfacturasData.forEach(f => {\n  const cat = f.Categoria || f.categoria || 'Sin categoría';\n  if (!categorias[cat]) {\n    categorias[cat] = { total: 0, num: 0 };\n  }\n  const total = parseFloat((f.Total || f.total || '0').toString().replace(',', '.'));\n  categorias[cat].total += isNaN(total) ? 0 : total;\n  categorias[cat].num++;\n});\n\nconst topCategorias = Object.entries(categorias)\n  .sort((a, b) => b[1].total - a[1].total)\n  .slice(0, 3)\n  .map(([cat, data]) => `- ${cat}: ${money(data.total)} (${data.num} facturas)`);\n\n// Top 3 facturas con más detalle\nconst topFacturas = facturasData\n  .sort((a, b) => {\n    const totalA = parseFloat((a.Total || a.total || '0').toString().replace(',', '.'));\n    const totalB = parseFloat((b.Total || b.total || '0').toString().replace(',', '.'));\n    return totalB - totalA;\n  })\n  .slice(0, 3)\n  .map((f, i) => {\n    const emisor = f.Emisor || f.emisor || 'Sin emisor';\n    const total = f.Total || f.total || 0;\n    const cat = f.Categoria || f.categoria || 'Sin cat.';\n    return `${i + 1}. ${emisor} - ${money(total)} (${cat})`;\n  });\n\n// Procesar leads usando los nombres de columnas correctos\nconst totalLeads = leadsData.length;\n\n// Agrupar por estado\nconst estados = {};\nleadsData.forEach(l => {\n  const est = l.Estado || 'sin_estado';\n  estados[est] = (estados[est] || 0) + 1;\n});\n\nconst estadoLines = Object.entries(estados)\n  .map(([estado, total]) => `- ${estado}: ${total} leads`);\n\n// Top leads por empresa y cargo\nconst topLeads = leadsData\n  .filter(l => l.Nombre)\n  .slice(-5)\n  .reverse()\n  .slice(0, 3)\n  .map((l, i) => {\n    const nombre = l.Nombre || 'Sin nombre';\n    const empresa = l.Empresa ? ` (${l.Empresa})` : '';\n    const cargo = l.Cargo ? ` - ${l.Cargo}` : '';\n    const info = l.InformaciónRelevante || l.InformacionRelevante || '';\n    return `${i + 1}. ${nombre}${empresa}${cargo}${info ? '\\n   📋 ' + info : ''}`;\n  });\n\n// Procesar emails\nconst totalEmails = emailsData.length;\nconst threads = {};\nemailsData.forEach(email => {\n  const threadId = email.threadId;\n  if (!threads[threadId]) {\n    threads[threadId] = [];\n  }\n  threads[threadId].push(email);\n});\n\nconst emailsConRespuesta = Object.values(threads).filter(t => t.length > 1).length;\nconst emailsSinRespuesta = Object.values(threads).filter(t => t.length === 1).length;\n\nconst text =\n`📊 *Resumen general*\\n\\n` +\n`💰 *Facturas*\\n` +\n`- Nº facturas: ${numFacturas}\\n` +\n`- Gasto total: ${money(totalGastado)}\\n\\n` +\n`*Top categorías de gasto*\\n` +\n`${topCategorias.length ? topCategorias.join('\\n') : 'Sin datos'}\\n\\n` +\n`*Top 3 facturas*\\n` +\n`${topFacturas.length ? topFacturas.join('\\n') : 'Sin datos'}\\n\\n` +\n`👥 *Leads*\\n` +\n`- Total leads: ${totalLeads}\\n\\n` +\n`*Leads por estado*\\n` +\n`${estadoLines.length ? estadoLines.join('\\n') : 'Sin datos'}\\n\\n` +\n`*Últimos 3 leads destacados*\\n` +\n`${topLeads.length ? topLeads.join('\\n') : 'Sin datos'}\\n\\n` +\n`📧 *Emails (esta semana)*\\n` +\n`- Total enviados: ${totalEmails}\\n` +\n`- Con respuesta: ${emailsConRespuesta}\\n` +\n`- Sin respuesta: ${emailsSinRespuesta}`;\n\nreturn [{ text, emailsData, threads }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2192,
+        1424
+      ],
+      "id": "98177db5-7ee3-48ce-9cee-78b58e61a44e",
+      "name": "Resumen - Formatear mensaje"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Eres un analista de negocio y financiero. A partir del siguiente resumen numérico de facturas y leads de los últimos 30 días, escribe un resumen ejecutivo en 3-6 viñetas en español con conclusiones y recomendaciones prácticas. Devuelve solo el texto del resumen, sin saludos ni explicaciones técnicas.\\n\\nResumen numérico:\\n{{ $('Resumen - Formatear mensaje').item.json.text }}",
+        "options": {
+          "systemMessage": "Eres un analista de negocio especializado en automatización y finanzas. Responde siempre en español claro y directo.\nSe usara formato markdown"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        1776,
+        880
+      ],
+      "id": "269d777e-c3ee-42a5-9dfc-bd5845823784",
+      "name": "Agent AI - Resumen IA"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Agent AI - Resumen IA",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram Trigger1": {
+      "main": [
+        [
+          {
+            "node": "IF /leads1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF /leads1": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets - Leads (comando /leads)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "IF /resumen1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF /emails": {
+      "main": [
+        [
+          {
+            "node": "Gmail - Obtener Enviados",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail - Obtener Enviados": {
+      "main": [
+        [
+          {
+            "node": "Procesar Emails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Procesar Emails": {
+      "main": [
+        [
+          {
+            "node": "Telegram - Enviar Emails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF /resumen1": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets - Facturas (resumen)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "IF /emails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram - Ayuda1": {
+      "main": []
+    },
+    "Google Sheets - Leads (comando /leads)": {
+      "main": [
+        [
+          {
+            "node": "Leads - Formatear mensaje1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leads - Formatear mensaje1": {
+      "main": [
+        [
+          {
+            "node": "Telegram - Enviar Leads1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resumen - Añadir IA1": {
+      "main": [
+        [
+          {
+            "node": "Telegram - Enviar Resumen1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Sheets - Facturas (resumen)": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets - Leads (resumen)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Sheets - Leads (resumen)": {
+      "main": [
+        [
+          {
+            "node": "Gmail - Enviados (resumen)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail - Enviados (resumen)": {
+      "main": [
+        [
+          {
+            "node": "Resumen - Formatear mensaje",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent AI - Resumen IA": {
+      "main": [
+        [
+          {
+            "node": "Resumen - Añadir IA1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resumen - Formatear mensaje": {
+      "main": [
+        [
+          {
+            "node": "Agent AI - Resumen IA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "0f34e4fe-3324-483e-9afc-0260d84962b0",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "f2d976ac820a993756afa7a65a73c4005d7455fac46d1ab6b9794f31dd00df0b"
+  },
+  "id": "KPjXWVrcTl3m1lHx",
+  "tags": []
+}
