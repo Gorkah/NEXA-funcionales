@@ -1,0 +1,202 @@
+{
+  "name": "Telegram guardar facturas",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {
+          "download": true
+        }
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -496,
+        -176
+      ],
+      "id": "287bb526-8fdd-45fd-84e0-bcb2575cda66",
+      "name": "Telegram Trigger",
+      "webhookId": "44e2a84e-a87d-4bed-86ea-67d6fe6b11d0",
+      "credentials": {
+        "telegramApi": {
+          "id": "Au8Ajse28MQyU8GU",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "name": "={{ $now.format('yyyy-MM-dd') }}-{{ $('Code in JavaScript').item.json.file_name }}",
+        "driveId": {
+          "__rl": true,
+          "value": "My Drive",
+          "mode": "list",
+          "cachedResultName": "My Drive",
+          "cachedResultUrl": "https://drive.google.com/drive/my-drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "1slF_FLPIMJe_adt61mM4yf20wFp4zNB-",
+          "mode": "list",
+          "cachedResultName": "test n8n",
+          "cachedResultUrl": "https://drive.google.com/drive/folders/1slF_FLPIMJe_adt61mM4yf20wFp4zNB-"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        528,
+        -240
+      ],
+      "id": "9b7da3c5-a8fd-4d5d-a6a5-9036a2efa5ec",
+      "name": "guardar_drive",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "HNXIlJ9RsDd4gYLG",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "6b189e0c-883d-4a5a-9de4-126dbac475dc",
+              "leftValue": "={{ $json.message.photo }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "boolean",
+                "operation": "exists",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "19f87caf-ce76-463f-87de-74c4348576df",
+              "leftValue": "={{ $json.message.document }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -176,
+        -176
+      ],
+      "id": "6462c78f-abde-4c0d-9608-8b0eb58125fa",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "jsCode": "const msg = $json.message;\n\n// Foto (Telegram manda array de tamaños; cogemos el último)\nif (msg.photo) {\n  const photo = msg.photo[msg.photo.length - 1];\n  return [{ file_id: photo.file_id, file_name: `photo_${Date.now()}.jpg` }];\n}\n\n// PDF u otro documento\nif (msg.document) {\n  return [{\n    file_id: msg.document.file_id,\n    file_name: msg.document.file_name\n  }];\n}\n\nreturn []; // Si no hay nada\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        128,
+        -176
+      ],
+      "id": "b3536c5e-09bf-45fe-a256-a2d20c5a7558",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "fileId": "={{ $json.file_id }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        336,
+        -208
+      ],
+      "id": "0ae04726-fc5a-4c23-b4c7-ceeadac0a0e7",
+      "name": "Get a file",
+      "webhookId": "a2100cd3-7aac-4e87-bc49-4db26a667f5a",
+      "credentials": {
+        "telegramApi": {
+          "id": "Au8Ajse28MQyU8GU",
+          "name": "Telegram account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Get a file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get a file": {
+      "main": [
+        [
+          {
+            "node": "guardar_drive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "68f7d3f4-cf0b-4e55-9e0d-c2cf10753d92",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "f2d976ac820a993756afa7a65a73c4005d7455fac46d1ab6b9794f31dd00df0b"
+  },
+  "id": "32GVODTNH7lKtB1Z",
+  "tags": []
+}
