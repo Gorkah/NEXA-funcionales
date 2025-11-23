@@ -1,0 +1,462 @@
+{
+  "name": "AGENTE GMAIL - Con Escalado a Equipo",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "filters": {
+          "readStatus": "unread",
+          "sender": "gorkahvinsperecalders@gmail.com"
+        }
+      },
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        112,
+        304
+      ],
+      "id": "gmail-trigger",
+      "name": "Gmail Trigger - Nuevos Emails",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "GMAIL_CREDENTIAL_ID",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "email_id",
+              "name": "email_id",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            },
+            {
+              "id": "email_from",
+              "name": "email_from",
+              "value": "={{ $json.From.split('<')[1].split('>')[0] }} ",
+              "type": "string"
+            },
+            {
+              "id": "email_from_name",
+              "name": "email_from_name",
+              "value": "={{ $json.To }}",
+              "type": "string"
+            },
+            {
+              "id": "email_subject",
+              "name": "email_subject",
+              "value": "={{ $json.Subject }}",
+              "type": "string"
+            },
+            {
+              "id": "email_body",
+              "name": "email_body",
+              "value": "={{ $json.snippet }}",
+              "type": "string"
+            },
+            {
+              "id": "email_date",
+              "name": "email_date",
+              "value": "={{ $json.internalDate }}",
+              "type": "string"
+            },
+            {
+              "id": "thread_id",
+              "name": "thread_id",
+              "value": "={{ $json.threadId }}",
+              "type": "string"
+            },
+            {
+              "id": "timestamp",
+              "name": "timestamp",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        304,
+        304
+      ],
+      "id": "extract-email-data",
+      "name": "Extraer Datos Email"
+    },
+    {
+      "parameters": {
+        "command": "=sqlite3 /home/node/.n8n/private_data.sqlite \"CREATE TABLE IF NOT EXISTS customers_sql1 (id INTEGER PRIMARY KEY AUTOINCREMENT, nombre_completo TEXT, empresa TEXT, telefono TEXT, email TEXT UNIQUE, created_at TEXT); SELECT id, nombre_completo, empresa, telefono, email FROM customers_sql1 WHERE LOWER(email) = LOWER('{{ $json.email_from }}') LIMIT 1;\""
+      },
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        512,
+        304
+      ],
+      "id": "check-customer",
+      "name": "SQLite - Verificar Cliente"
+    },
+    {
+      "parameters": {
+        "jsCode": "const emailData = $('Extraer Datos Email').first().json;\nconst customerCheckOutput = $input.first().json.stdout || '';\n\nconst isExistingCustomer = customerCheckOutput.trim() !== '';\nlet customerInfo = null;\n\nif (isExistingCustomer) {\n  const parts = customerCheckOutput.trim().split('|');\n  if (parts.length >= 5) {\n    customerInfo = {\n      id: parts[0],\n      nombre_completo: parts[1],\n      empresa: parts[2],\n      telefono: parts[3],\n      email: parts[4]\n    };\n  }\n}\n\nreturn {\n  ...emailData,\n  is_existing_customer: isExistingCustomer,\n  customer_id: customerInfo?.id || null,\n  customer_name: customerInfo?.nombre_completo || emailData.email_from_name,\n  customer_empresa: customerInfo?.empresa || 'N/A',\n  customer_phone: customerInfo?.telefono || ''\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        704,
+        304
+      ],
+      "id": "prepare-context",
+      "name": "Preparar Contexto Cliente"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Email de: {{ $json.email_from_name }} <{{ $json.email_from }}>\\nAsunto: {{ $json.email_subject }}\\n\\nMensaje:\\n{{ $json.email_body }}\\n\\n---\\n\\n**Información del remitente:**\\nCliente existente: {{ $json.is_existing_customer ? 'Sí' : 'No' }}\\n{{ $json.is_existing_customer ? 'Nombre: ' + $json.customer_name : '' }}\\n{{ $json.is_existing_customer && $json.customer_empresa !== 'N/A' ? 'Empresa: ' + $json.customer_empresa : '' }}\\n\\nFecha del email: {{ $json.email_date }}",
+        "options": {
+          "systemMessage": "# Rol\\nEres el asistente virtual de atención al cliente de puma, especializada en automatización con IA.\\n\\n# Directrices\\n- Profesional pero cercano\\n- Usa el nombre del cliente\\n- Evita jerga técnica innecesaria\\n- Sé conciso pero completo\\n- Muestra empatía\\n\\n## IMPORTANTE - ESCALADO\\nSi NO tienes la información suficiente para responder de forma precisa y confiable, debes responder EXACTAMENTE:\\n\\n\"ESCALADO_REQUERIDO: [breve razón por qué no puedes responder]\"\\n\\nEsto incluye:\\n- Preguntas técnicas muy específicas\\n- Solicitudes de información que no está en tu contexto\\n- Temas que requieren confirmación del equipo\\n- Negociaciones de precio personalizadas\\n- Problemas técnicos específicos\\n\\n## Si puedes responder:\\nEstructura:\\n1. Saludo personalizado\\n2. Agradecimiento\\n3. Respuesta directa\\n4. Info adicional (si aplica)\\n5. Call-to-action\\n6. Despedida profesional\\n\\n## Servicios:\\n- Standard ($99/mes): WhatsApp + Gmail + Leads\\n- Premium ($199/mes): Standard + Voice + Marketing\\n- NEXA ($399/mes): Suite completa\\n\\n## Contactos:\\n- Email: puma@gmail.com\\n- Horario: Lun-Vie 9-18h"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        896,
+        304
+      ],
+      "id": "ai-email-responder",
+      "name": "AI Email Responder"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "escalation-check",
+              "leftValue": "={{ $json.output }}",
+              "rightValue": "ESCALADO_REQUERIDO",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1088,
+        304
+      ],
+      "id": "check-escalation",
+      "name": "¿Requiere Escalado?"
+    },
+    {
+      "parameters": {
+        "jsCode": "const aiResponse = $('AI Email Responder').first().json.output;\nconst emailData = $('Preparar Contexto Cliente').first().json;\n\n// Convert to HTML\nlet htmlResponse = aiResponse\n  .replace(/\\n/g, '<br>')\n  .replace(/\\*\\*(.*?)\\*\\*/g, '<strong>$1</strong>')\n  .replace(/\\*(.*?)\\*/g, '<em>$1</em>');\n\nconst finalHtml = `\n<div style=\"font-family: Arial, sans-serif; font-size: 14px; color: #333; line-height: 1.6;\">\n  ${htmlResponse}\n  <br><br>\n  <div style=\"border-top: 1px solid #e0e0e0; padding-top: 15px; margin-top: 20px;\">\n    <p style=\"margin: 5px 0;\"><strong>Equipo de Soporte - puma</strong></p>\n    <p style=\"margin: 5px 0; font-size: 12px; color: #666;\">\n      📧 Email: puma@gmail.com<br>\n      🕐 Horario: Lunes a Viernes, 9:00 - 18:00\n    </p>\n  </div>\n</div>\n`;\n\nreturn {\n  ...emailData,\n  response_text: aiResponse,\n  response_html: finalHtml\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1280,
+        176
+      ],
+      "id": "format-response-normal",
+      "name": "Formatear Respuesta Normal"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.email_from }}",
+        "subject": "=Re: {{ $json.email_subject }}",
+        "message": "={{ $json.response_html }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1488,
+        176
+      ],
+      "id": "send-normal-reply",
+      "name": "Gmail - Respuesta Normal",
+      "webhookId": "normal-reply-webhook",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "GMAIL_CREDENTIAL_ID",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "puma@gmail.com",
+        "subject": "=🚨 ESCALADO - {{ $('Preparar Contexto Cliente').item.json.email_subject }}",
+        "message": "=<div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 2px solid #ff6b6b; border-radius: 8px; background-color: #fff5f5;\">\n  <h2 style=\"color: #ff6b6b; margin-top: 0;\">⚠️ Consulta Escalada - Requiere Atención</h2>\n  \n  <div style=\"background-color: white; padding: 15px; border-radius: 5px; margin: 15px 0;\">\n    <h3 style=\"color: #333; margin-top: 0;\">📋 Datos del Cliente</h3>\n    <p><strong>Nombre:</strong> {{ $('Preparar Contexto Cliente').item.json.customer_name }}</p>\n    <p><strong>Email:</strong> {{ $('Preparar Contexto Cliente').item.json.email_from }}</p>\n    <p><strong>Empresa:</strong> {{ $('Preparar Contexto Cliente').item.json.customer_empresa }}</p>\n    <p><strong>Teléfono:</strong> {{ $('Preparar Contexto Cliente').item.json.customer_phone || 'No disponible' }}</p>\n    <p><strong>Cliente existente:</strong> {{ $('Preparar Contexto Cliente').item.json.is_existing_customer ? '✅ Sí' : '❌ No' }}</p>\n  </div>\n\n  <div style=\"background-color: white; padding: 15px; border-radius: 5px; margin: 15px 0;\">\n    <h3 style=\"color: #333; margin-top: 0;\">📧 Consulta Original</h3>\n    <p><strong>Asunto:</strong> {{ $('Preparar Contexto Cliente').item.json.email_subject }}</p>\n    <p><strong>Fecha:</strong> {{ $('Preparar Contexto Cliente').item.json.timestamp }}</p>\n    <div style=\"background-color: #f8f9fa; padding: 10px; border-left: 3px solid #ff6b6b; margin-top: 10px;\">\n      {{ $('Preparar Contexto Cliente').item.json.email_body }}\n    </div>\n  </div>\n\n  <div style=\"background-color: white; padding: 15px; border-radius: 5px; margin: 15px 0;\">\n    <h3 style=\"color: #333; margin-top: 0;\">🤖 Motivo del Escalado</h3>\n    <p>{{ $('AI Email Responder').item.json.output.replace('ESCALADO_REQUERIDO:', '').trim() }}</p>\n  </div>\n\n  <div style=\"background-color: #fff9e6; padding: 15px; border-radius: 5px; margin: 15px 0; border-left: 4px solid #ffc107;\">\n    <h3 style=\"color: #f57c00; margin-top: 0;\">⏰ Acción Requerida</h3>\n    <p><strong>El cliente ha sido notificado que será contactado en las próximas 24 horas.</strong></p>\n    <p>Por favor, responder al email: <a href=\"mailto:{{ $('Preparar Contexto Cliente').item.json.email_from }}\">{{ $('Preparar Contexto Cliente').item.json.email_from }}</a></p>\n  </div>\n\n  <div style=\"text-align: center; margin-top: 20px; padding-top: 15px; border-top: 1px solid #ddd;\">\n    <p style=\"font-size: 12px; color: #666;\">Thread ID: {{ $('Preparar Contexto Cliente').item.json.thread_id }}</p>\n  </div>\n</div>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1280,
+        432
+      ],
+      "id": "send-escalation-email",
+      "name": "Gmail - Notificar Equipo",
+      "webhookId": "escalation-team-webhook",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "GMAIL_CREDENTIAL_ID",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Preparar Contexto Cliente').item.json.email_from }}",
+        "subject": "=Re: {{ $('Preparar Contexto Cliente').item.json.email_subject }}",
+        "message": "=<div style=\"font-family: Arial, sans-serif; font-size: 14px; color: #333; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px;\">\n  <p>Estimado/a <strong>{{ $('Preparar Contexto Cliente').item.json.customer_name }}</strong>,</p>\n  \n  <p>Gracias por contactarnos. Hemos recibido tu consulta y queremos asegurarnos de darte la información más precisa y completa posible.</p>\n  \n  <div style=\"background-color: #e3f2fd; padding: 15px; border-left: 4px solid #2196f3; margin: 20px 0;\">\n    <p style=\"margin: 0;\"><strong>📋 Tu consulta ha sido derivada a nuestro equipo especializado</strong></p>\n  </div>\n  \n  <p>Un miembro de nuestro equipo revisará personalmente tu solicitud y te responderá en un plazo máximo de <strong>24 horas</strong>.</p>\n  \n  <p>Si tu consulta es urgente, también puedes contactarnos directamente en:</p>\n  <ul>\n    <li>📧 Email: <a href=\"mailto:puma@gmail.com\">puma@gmail.com</a></li>\n    <li>🕐 Horario: Lunes a Viernes, 9:00 - 18:00</li>\n  </ul>\n  \n  <p>Agradecemos tu paciencia y quedamos atentos para ayudarte.</p>\n  \n  <br>\n  <p>Saludos cordiales,</p>\n  \n  <div style=\"border-top: 1px solid #e0e0e0; padding-top: 15px; margin-top: 20px;\">\n    <p style=\"margin: 5px 0;\"><strong>Equipo de Atención al Cliente - puma</strong></p>\n    <p style=\"margin: 5px 0; font-size: 12px; color: #666;\">\n      Automatización Empresarial con IA<br>\n      📧 puma@gmail.com | 🕐 Lun-Vie 9:00-18:00\n    </p>\n  </div>\n</div>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1488,
+        432
+      ],
+      "id": "send-escalation-client",
+      "name": "Gmail - Notificar Cliente (24h)",
+      "webhookId": "escalation-client-webhook",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "GMAIL_CREDENTIAL_ID",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "command": "=sqlite3 /home/node/.n8n/private_data.sqlite \"CREATE TABLE IF NOT EXISTS escalated_tickets_sql1 (id INTEGER PRIMARY KEY AUTOINCREMENT, customer_email TEXT, customer_name TEXT, subject TEXT, original_message TEXT, escalation_reason TEXT, status TEXT DEFAULT 'pending', created_at TEXT, resolved_at TEXT); INSERT INTO escalated_tickets_sql1 (customer_email, customer_name, subject, original_message, escalation_reason, created_at) VALUES ('{{ $('Preparar Contexto Cliente').item.json.email_from }}', '{{ $('Preparar Contexto Cliente').item.json.customer_name.replace(/'/g, \"''\") }}', '{{ $('Preparar Contexto Cliente').item.json.email_subject.replace(/'/g, \"''\") }}', '{{ $('Preparar Contexto Cliente').item.json.email_body.replace(/'/g, \"''\") }}', '{{ $('AI Email Responder').item.json.output.replace(/'/g, \"''\") }}', '{{ $now.toISO() }}');\""
+      },
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        1696,
+        432
+      ],
+      "id": "log-escalation",
+      "name": "SQLite - Registrar Escalado"
+    },
+    {
+      "parameters": {
+        "command": "=sqlite3 /home/node/.n8n/private_data.sqlite \"CREATE TABLE IF NOT EXISTS emails_sent_sql1 (id INTEGER PRIMARY KEY AUTOINCREMENT, destinatario TEXT, asunto TEXT, cuerpo TEXT, tipo TEXT, estado TEXT, fecha_envio TEXT); INSERT INTO emails_sent_sql1 (destinatario, asunto, cuerpo, tipo, estado, fecha_envio) VALUES ('{{ $json.email_from }}', 'Re: {{ $json.email_subject.replace(/'/g, \"''\") }}', '{{ $json.response_text.replace(/'/g, \"''\") }}', 'atencion_cliente', 'enviado', '{{ $json.timestamp }}');\""
+      },
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        1696,
+        176
+      ],
+      "id": "log-normal-email",
+      "name": "SQLite - Registrar Email"
+    },
+    {
+      "parameters": {
+        "content": "## AGENTE GMAIL - CON ESCALADO\n\n### Funcionalidades:\n✅ Respuestas automáticas con IA\n✅ Sistema de escalado inteligente\n✅ Notificación al equipo por email\n✅ Aviso al cliente (respuesta en 24h)\n✅ Registro de tickets escalados\n✅ Base de datos SQLite\n\n### Flujo de Escalado:\n1. IA detecta que no puede responder\n2. Email al equipo con todos los datos\n3. Email al cliente (aviso 24h)\n4. Registro en tabla escalated_tickets_sql1\n\n### Configuración:\n- Cambiar email del equipo en nodo 'Gmail - Notificar Equipo'\n- Actualizar credenciales de Gmail\n- Personalizar mensajes si es necesario\n\n### Tablas SQLite:\n- customers_sql1\n- emails_sent_sql1\n- escalated_tickets_sql1 (nueva)",
+        "height": 400,
+        "width": 350,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -256,
+        160
+      ],
+      "id": "sticky-note-info",
+      "name": "Info Workflow"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        800,
+        544
+      ],
+      "id": "google-gemini-model",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "GEMINI_CREDENTIAL_ID",
+          "name": "Google Gemini account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Gmail Trigger - Nuevos Emails": {
+      "main": [
+        [
+          {
+            "node": "Extraer Datos Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extraer Datos Email": {
+      "main": [
+        [
+          {
+            "node": "SQLite - Verificar Cliente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SQLite - Verificar Cliente": {
+      "main": [
+        [
+          {
+            "node": "Preparar Contexto Cliente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar Contexto Cliente": {
+      "main": [
+        [
+          {
+            "node": "AI Email Responder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Email Responder": {
+      "main": [
+        [
+          {
+            "node": "¿Requiere Escalado?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Requiere Escalado?": {
+      "main": [
+        [
+          {
+            "node": "Gmail - Notificar Equipo",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Formatear Respuesta Normal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Formatear Respuesta Normal": {
+      "main": [
+        [
+          {
+            "node": "Gmail - Respuesta Normal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail - Respuesta Normal": {
+      "main": [
+        [
+          {
+            "node": "SQLite - Registrar Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail - Notificar Equipo": {
+      "main": [
+        [
+          {
+            "node": "Gmail - Notificar Cliente (24h)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail - Notificar Cliente (24h)": {
+      "main": [
+        [
+          {
+            "node": "SQLite - Registrar Escalado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Email Responder",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "new-escalation-v1",
+  "meta": {
+    "templateId": "agent-gmail-escalation-v1",
+    "templateCreatedBy": "puma",
+    "description": "Agente Gmail con sistema de escalado automático al equipo cuando no puede responder",
+    "templateCredsSetupCompleted": false,
+    "instanceId": "escalation-gmail-instance"
+  },
+  "id": "NEW_WORKFLOW_ID",
+  "tags": []
+}

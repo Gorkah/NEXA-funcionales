@@ -1,0 +1,404 @@
+{
+  "name": "AGENTE WEB CHAT - Con Escalado a Equipo",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "webchat-escalation",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        112,
+        400
+      ],
+      "id": "webhook-webchat",
+      "name": "Webhook Chat Web",
+      "webhookId": "webchat-escalation-webhook"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "session_id",
+              "name": "session_id",
+              "value": "={{ $json.body.session_id || $json.session_id || 'session_' + $now.toUnixInteger() }}",
+              "type": "string"
+            },
+            {
+              "id": "user_message",
+              "name": "user_message",
+              "value": "={{ $json.body.message || $json.message || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "user_name",
+              "name": "user_name",
+              "value": "={{ $json.body.name || $json.name || 'Usuario' }}",
+              "type": "string"
+            },
+            {
+              "id": "user_email",
+              "name": "user_email",
+              "value": "={{ $json.body.email || $json.email || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "user_phone",
+              "name": "user_phone",
+              "value": "={{ $json.body.phone || $json.phone || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "page_url",
+              "name": "page_url",
+              "value": "={{ $json.body.page_url || $json.page_url || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "timestamp",
+              "name": "timestamp",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        304,
+        400
+      ],
+      "id": "extract-data",
+      "name": "Extraer Datos Mensaje"
+    },
+    {
+      "parameters": {
+        "command": "=sqlite3 /home/node/.n8n/private_data.sqlite \"CREATE TABLE IF NOT EXISTS chat_history_sql1 (id INTEGER PRIMARY KEY AUTOINCREMENT, session_id TEXT, role TEXT, content TEXT, timestamp TEXT); SELECT id, session_id, role, content, timestamp FROM chat_history_sql1 WHERE session_id = '{{ $json.session_id }}' ORDER BY id DESC LIMIT 10;\""
+      },
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        512,
+        400
+      ],
+      "id": "load-history",
+      "name": "SQLite - Cargar Historial"
+    },
+    {
+      "parameters": {
+        "jsCode": "const extractedData = $('Extraer Datos Mensaje').first().json;\nconst historyOutput = $input.first().json.stdout || '';\n\n// Parsear la salida de SQLite\nlet conversationHistory = '';\nif (historyOutput && historyOutput.trim() !== '') {\n  const lines = historyOutput.trim().split('\\n');\n  // Invertir para orden cronológico\n  lines.reverse();\n  \n  conversationHistory = lines.map(line => {\n    const parts = line.split('|');\n    if (parts.length >= 4) {\n      const role = parts[2];\n      const content = parts[3];\n      return `${role === 'user' ? 'Usuario' : 'Asistente'}: ${content}`;\n    }\n    return '';\n  }).filter(l => l).join('\\n');\n}\n\nreturn {\n  ...extractedData,\n  conversation_history: conversationHistory,\n  has_history: conversationHistory.length > 0\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        704,
+        400
+      ],
+      "id": "prepare-context",
+      "name": "Preparar Contexto Conversación"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.has_history ? 'Historial de conversación:\\n' + $json.conversation_history + '\\n\\n' : '' }}Nombre del usuario: {{ $json.user_name }}{{ $json.user_email ? '\\nEmail: ' + $json.user_email : '' }}{{ $json.user_phone ? '\\nTeléfono: ' + $json.user_phone : '' }}\\n\\nMensaje actual:\\n{{ $json.user_message }}\\n\\nFecha y hora: {{ $json.timestamp }}\\nPágina web: {{ $json.page_url || 'No especificada' }}",
+        "options": {
+          "systemMessage": "# Rol\\nEres el asistente virtual de atención al cliente de puma, especializada en automatización con IA.\\n\\n# Directrices\\n- Profesional pero cercano y humano\\n- Usa el nombre del usuario\\n- Respuestas breves: 2-4 líneas (excepto cuando se requiera detalle)\\n- Evita jerga técnica innecesaria\\n- Muestra entusiasmo por ayudar\\n\\n## IMPORTANTE - ESCALADO\\nSi NO tienes información suficiente para responder con confianza, debes responder EXACTAMENTE:\\n\\n\"ESCALADO_REQUERIDO: [razón específica]\"\\n\\nEscalar cuando:\\n- Preguntas técnicas muy específicas\\n- Solicitudes que requieren confirmación del equipo\\n- Negociaciones de precio personalizadas\\n- Problemas técnicos complejos\\n- Integración con sistemas específicos\\n- Consultas sobre desarrollo custom\\n\\n## Si puedes responder:\\n\\n**Servicios:**\\n- Standard ($99/mes): WhatsApp + Gmail + Leads\\n- Premium ($199/mes): Standard + Voice + Marketing\\n- NEXA ($399/mes): Suite completa\\n\\n**Horario:**\\n- Lun-Vie: 9:00 - 18:00\\n- Atención IA: 24/7\\n\\n**Contacto:**\\n- Email: puma@gmail.com\\n\\n## Formato\\n- NO uses Markdown (nada de **, *, etc.)\\n- Texto simple y claro\\n- Termina con pregunta para mantener conversación activa"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        896,
+        400
+      ],
+      "id": "ai-chat-agent",
+      "name": "AI Chat Agent"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "escalation-check",
+              "leftValue": "={{ $json.output }}",
+              "rightValue": "ESCALADO_REQUERIDO",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1088,
+        400
+      ],
+      "id": "check-escalation",
+      "name": "¿Requiere Escalado?"
+    },
+    {
+      "parameters": {
+        "command": "=sqlite3 /home/node/.n8n/private_data.sqlite \"INSERT INTO chat_history_sql1 (session_id, role, content, timestamp) VALUES ('{{ $('Extraer Datos Mensaje').item.json.session_id }}', 'user', '{{ $('Extraer Datos Mensaje').item.json.user_message.replace(/'/g, \"''\") }}', '{{ $('Extraer Datos Mensaje').item.json.timestamp }}'); INSERT INTO chat_history_sql1 (session_id, role, content, timestamp) VALUES ('{{ $('Extraer Datos Mensaje').item.json.session_id }}', 'assistant', '{{ $('AI Chat Agent').item.json.output.replace(/'/g, \"''\") }}', '{{ $now.toISO() }}');\""
+      },
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        1280,
+        240
+      ],
+      "id": "save-normal-messages",
+      "name": "SQLite - Guardar Chat Normal"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ \n{\n  \"success\": true,\n  \"message\": $('AI Chat Agent').item.json.output,\n  \"session_id\": $('Extraer Datos Mensaje').item.json.session_id,\n  \"escalated\": false,\n  \"timestamp\": $now.toISO()\n}\n}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1488,
+        240
+      ],
+      "id": "webhook-response-normal",
+      "name": "Respuesta Normal"
+    },
+    {
+      "parameters": {
+        "sendTo": "puma@gmail.com",
+        "subject": "=🚨 ESCALADO WEB CHAT - {{ $('Preparar Contexto Conversación').item.json.user_name }}",
+        "message": "=<div style=\"font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto; padding: 20px; border: 2px solid #ff6b6b; border-radius: 8px; background-color: #fff5f5;\">\n  <h2 style=\"color: #ff6b6b; margin-top: 0;\">⚠️ Consulta Web Chat Escalada</h2>\n  \n  <div style=\"background-color: white; padding: 15px; border-radius: 5px; margin: 15px 0;\">\n    <h3 style=\"color: #333; margin-top: 0;\">👤 Datos del Visitante</h3>\n    <p><strong>Nombre:</strong> {{ $('Preparar Contexto Conversación').item.json.user_name }}</p>\n    <p><strong>Email:</strong> {{ $('Preparar Contexto Conversación').item.json.user_email || 'No proporcionado' }}</p>\n    <p><strong>Teléfono:</strong> {{ $('Preparar Contexto Conversación').item.json.user_phone || 'No proporcionado' }}</p>\n    <p><strong>Página web:</strong> {{ $('Preparar Contexto Conversación').item.json.page_url || 'No disponible' }}</p>\n    <p><strong>Session ID:</strong> <code>{{ $('Preparar Contexto Conversación').item.json.session_id }}</code></p>\n  </div>\n\n  <div style=\"background-color: white; padding: 15px; border-radius: 5px; margin: 15px 0;\">\n    <h3 style=\"color: #333; margin-top: 0;\">💬 Historial de Conversación</h3>\n    {{ $('Preparar Contexto Conversación').item.json.has_history ? '<div style=\"background-color: #f8f9fa; padding: 10px; border-radius: 5px; font-family: monospace; font-size: 12px; white-space: pre-wrap;\">' + $('Preparar Contexto Conversación').item.json.conversation_history + '</div>' : '<p style=\"color: #666; font-style: italic;\">Sin historial previo</p>' }}\n  </div>\n\n  <div style=\"background-color: white; padding: 15px; border-radius: 5px; margin: 15px 0;\">\n    <h3 style=\"color: #333; margin-top: 0;\">❓ Última Pregunta</h3>\n    <div style=\"background-color: #e3f2fd; padding: 15px; border-left: 4px solid #2196f3; border-radius: 3px;\">\n      <p style=\"margin: 0; font-size: 14px;\"><strong>{{ $('Preparar Contexto Conversación').item.json.user_message }}</strong></p>\n    </div>\n  </div>\n\n  <div style=\"background-color: white; padding: 15px; border-radius: 5px; margin: 15px 0;\">\n    <h3 style=\"color: #333; margin-top: 0;\">🤖 Motivo del Escalado</h3>\n    <p>{{ $('AI Chat Agent').item.json.output.replace('ESCALADO_REQUERIDO:', '').trim() }}</p>\n  </div>\n\n  <div style=\"background-color: #fff9e6; padding: 15px; border-radius: 5px; margin: 15px 0; border-left: 4px solid #ffc107;\">\n    <h3 style=\"color: #f57c00; margin-top: 0;\">⏰ Acción Requerida</h3>\n    <p><strong>El usuario ha sido notificado que será contactado en las próximas 24 horas.</strong></p>\n    {{ $('Preparar Contexto Conversación').item.json.user_email ? '<p>Responder a: <a href=\"mailto:' + $('Preparar Contexto Conversación').item.json.user_email + '\">' + $('Preparar Contexto Conversación').item.json.user_email + '</a></p>' : '<p style=\"color: #d32f2f;\">⚠️ No se proporcionó email - contactar por teléfono si está disponible</p>' }}\n  </div>\n\n  <div style=\"text-align: center; margin-top: 20px; padding-top: 15px; border-top: 1px solid #ddd;\">\n    <p style=\"font-size: 12px; color: #666;\">Fecha: {{ $('Preparar Contexto Conversación').item.json.timestamp }}</p>\n  </div>\n</div>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1280,
+        560
+      ],
+      "id": "send-escalation-email",
+      "name": "Gmail - Notificar Equipo",
+      "webhookId": "escalation-team-chat-webhook",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "GMAIL_CREDENTIAL_ID",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "command": "=sqlite3 /home/node/.n8n/private_data.sqlite \"CREATE TABLE IF NOT EXISTS web_escalated_tickets_sql1 (id INTEGER PRIMARY KEY AUTOINCREMENT, session_id TEXT, user_name TEXT, user_email TEXT, user_phone TEXT, last_message TEXT, conversation_history TEXT, page_url TEXT, escalation_reason TEXT, status TEXT DEFAULT 'pending', created_at TEXT, resolved_at TEXT); INSERT INTO web_escalated_tickets_sql1 (session_id, user_name, user_email, user_phone, last_message, conversation_history, page_url, escalation_reason, created_at) VALUES ('{{ $('Preparar Contexto Conversación').item.json.session_id }}', '{{ $('Preparar Contexto Conversación').item.json.user_name.replace(/'/g, \"''\") }}', '{{ $('Preparar Contexto Conversación').item.json.user_email }}', '{{ $('Preparar Contexto Conversación').item.json.user_phone }}', '{{ $('Preparar Contexto Conversación').item.json.user_message.replace(/'/g, \"''\") }}', '{{ $('Preparar Contexto Conversación').item.json.conversation_history.replace(/'/g, \"''\") }}', '{{ $('Preparar Contexto Conversación').item.json.page_url }}', '{{ $('AI Chat Agent').item.json.output.replace(/'/g, \"''\") }}', '{{ $now.toISO() }}'); INSERT INTO chat_history_sql1 (session_id, role, content, timestamp) VALUES ('{{ $('Extraer Datos Mensaje').item.json.session_id }}', 'user', '{{ $('Extraer Datos Mensaje').item.json.user_message.replace(/'/g, \"''\") }}', '{{ $('Extraer Datos Mensaje').item.json.timestamp }}'); INSERT INTO chat_history_sql1 (session_id, role, content, timestamp) VALUES ('{{ $('Extraer Datos Mensaje').item.json.session_id }}', 'assistant', 'Tu consulta ha sido derivada a nuestro equipo. Serás contactado en 24h.', '{{ $now.toISO() }}');\""
+      },
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        1488,
+        560
+      ],
+      "id": "log-escalation",
+      "name": "SQLite - Registrar Escalado"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ \n{\n  \"success\": true,\n  \"message\": \"Gracias por tu consulta, \" + $('Preparar Contexto Conversación').item.json.user_name + \". Tu pregunta ha sido derivada a nuestro equipo especializado. Te contactaremos en las próximas 24 horas\" + ($('Preparar Contexto Conversación').item.json.user_email ? \" al email \" + $('Preparar Contexto Conversación').item.json.user_email : \"\") + \". Si es urgente, escríbenos a puma@gmail.com.\",\n  \"session_id\": $('Extraer Datos Mensaje').item.json.session_id,\n  \"escalated\": true,\n  \"contact_time\": \"24 horas\",\n  \"timestamp\": $now.toISO()\n}\n}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1696,
+        560
+      ],
+      "id": "webhook-response-escalated",
+      "name": "Respuesta Escalada"
+    },
+    {
+      "parameters": {
+        "content": "## AGENTE WEB CHAT - CON ESCALADO\n\n### Funcionalidades:\n✅ Chat web 24/7 con IA\n✅ Sistema de escalado inteligente\n✅ Notificación al equipo por email\n✅ Aviso automático al usuario (24h)\n✅ Registro completo de tickets\n✅ Historial de conversación\n\n### Webhook URL:\n`/webhook/webchat-escalation`\n\n### Request JSON:\n```json\n{\n  \"message\": \"Tu pregunta\",\n  \"session_id\": \"session_123\",\n  \"name\": \"Juan\",\n  \"email\": \"juan@example.com\",\n  \"phone\": \"+34123456789\",\n  \"page_url\": \"https://...\"\n}\n```\n\n### Response Normal:\n```json\n{\n  \"success\": true,\n  \"message\": \"Respuesta IA\",\n  \"escalated\": false\n}\n```\n\n### Response Escalado:\n```json\n{\n  \"success\": true,\n  \"message\": \"Te contactaremos...\",\n  \"escalated\": true,\n  \"contact_time\": \"24 horas\"\n}\n```\n\n### Configuración:\n- Cambiar email equipo en 'Gmail - Notificar Equipo'\n- Actualizar credenciales Gmail\n- Personalizar mensajes\n\n### Tablas SQLite:\n- chat_history_sql1\n- web_escalated_tickets_sql1",
+        "height": 580,
+        "width": 380,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -256,
+        256
+      ],
+      "id": "sticky-note-info",
+      "name": "Info Workflow"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        800,
+        688
+      ],
+      "id": "google-gemini-model",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "GEMINI_CREDENTIAL_ID",
+          "name": "Google Gemini account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook Chat Web": {
+      "main": [
+        [
+          {
+            "node": "Extraer Datos Mensaje",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extraer Datos Mensaje": {
+      "main": [
+        [
+          {
+            "node": "SQLite - Cargar Historial",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SQLite - Cargar Historial": {
+      "main": [
+        [
+          {
+            "node": "Preparar Contexto Conversación",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar Contexto Conversación": {
+      "main": [
+        [
+          {
+            "node": "AI Chat Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Chat Agent": {
+      "main": [
+        [
+          {
+            "node": "¿Requiere Escalado?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Requiere Escalado?": {
+      "main": [
+        [
+          {
+            "node": "Gmail - Notificar Equipo",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "SQLite - Guardar Chat Normal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SQLite - Guardar Chat Normal": {
+      "main": [
+        [
+          {
+            "node": "Respuesta Normal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail - Notificar Equipo": {
+      "main": [
+        [
+          {
+            "node": "SQLite - Registrar Escalado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SQLite - Registrar Escalado": {
+      "main": [
+        [
+          {
+            "node": "Respuesta Escalada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Chat Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "new-escalation-chat-v1",
+  "meta": {
+    "templateId": "agent-webchat-escalation-v1",
+    "templateCreatedBy": "puma",
+    "description": "Agente Web Chat con sistema de escalado automático al equipo cuando no puede responder",
+    "templateCredsSetupCompleted": false,
+    "instanceId": "escalation-webchat-instance"
+  },
+  "id": "NEW_WORKFLOW_CHAT_ID",
+  "tags": []
+}
