@@ -154,7 +154,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "=https://evolution-sql1.srv869945.hstgr.cloud/{{ $('Webhook Voice Messages1').item.json.body.instance || $('Webhook Voice Messages1').item.json.instance }}",
+        "url": "=https://evolution-sql1.srv869945.hstgr.cloud/message/sendText/{{ $('Webhook Voice Messages1').item.json.body.instance || $('Webhook Voice Messages1').item.json.instance }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -331,7 +331,7 @@
       "typeVersion": 2,
       "position": [
         336,
-        960
+        848
       ],
       "id": "5e1ba7b9-fe42-4d14-8f6d-d53668e2afc1",
       "name": "Code in JavaScript"
@@ -472,7 +472,7 @@
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "6a25cbf6-9082-45cf-a3ba-2829ef080741",
+  "versionId": "1bf1bf8b-8cb3-4a06-ad00-e54e9c3d7e07",
   "meta": {
     "templateId": "voice-whatsapp-agent",
     "templateCredsSetupCompleted": true,
@@ -487,10 +487,10 @@
       "name": "funcionando"
     },
     {
-      "name": "voice-con-escalado",
-      "id": "aZdr9kmQ9lsoX6hI",
       "createdAt": "2025-11-23T13:51:49.970Z",
-      "updatedAt": "2025-11-23T13:51:49.970Z"
+      "updatedAt": "2025-11-23T13:51:49.970Z",
+      "id": "aZdr9kmQ9lsoX6hI",
+      "name": "voice-con-escalado"
     }
   ]
 }
