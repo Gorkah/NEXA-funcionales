@@ -1,0 +1,496 @@
+{
+  "name": "AGENTE VOICE WHATSAPP - Con Escalado (SQLite)",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        928,
+        992
+      ],
+      "id": "264229dc-9f24-4d97-a865-f2e2a1c05254",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "nr9q9VY1uHscSSEq",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://texttospeech.googleapis.com/v1/text:synthesize",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpQueryAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"input\": {\n    \"text\": {{ JSON.stringify($('AI Voice Responder1').item.json.output) }}\n  },\n  \"voice\": {\n    \"languageCode\": \"es-ES\",\n    \"name\": \"es-ES-Neural2-A\"\n  },\n  \"audioConfig\": {\n    \"audioEncoding\": \"MP3\"\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1648,
+        944
+      ],
+      "id": "c47a0049-df82-4c0b-b173-439193bacc73",
+      "name": "Google TTS - Generar Audio",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "nr9q9VY1uHscSSEq",
+          "name": "Google Gemini(PaLM) Api account"
+        },
+        "httpQueryAuth": {
+          "id": "UQcihUEOKdBWD1oU",
+          "name": "Query Auth account 4"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://evolution-sql1.srv869945.hstgr.cloud/message/sendWhatsAppAudio/{{ $('Webhook Voice Messages1').item.json.body.instance || $('Webhook Voice Messages1').item.json.instance }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Webhook Voice Messages1').item.json.body.apikey }}"
+            },
+            {
+              "name": "instance",
+              "value": "={{ $('Webhook Voice Messages1').item.json.body.instance }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "number",
+              "value": "={{ $('Webhook Voice Messages1').item.json.body.data.key.remoteJid || $('Webhook Voice Messages1').item.json.data.key.remoteJid }}"
+            },
+            {
+              "name": "audio",
+              "value": "={{ $json.audioContent }}"
+            },
+            {
+              "name": "delay",
+              "value": "={{ 2000 }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1968,
+        1008
+      ],
+      "id": "055f9aea-0a08-4c33-8876-b23591bfece0",
+      "name": "HTTP - Enviar Audio WhatsApp"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "escalation-check",
+              "leftValue": "={{ $('AI Voice Responder1').item.json.output }}",
+              "rightValue": "ESCALADO_REQUERIDO",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1392,
+        768
+      ],
+      "id": "574dae19-0754-4ee5-a7e1-e54e01e52fe4",
+      "name": "¿Requiere Escalado?"
+    },
+    {
+      "parameters": {
+        "sendTo": "gorkahvinsperecalders@gmail.com",
+        "subject": "=🚨 ESCALADO VOZ WHATSAPP - {{ $('Webhook Voice Messages1').item.json.body.data.pushName || $('Webhook Voice Messages1').item.json.data.pushName }}",
+        "message": "=<h2>⚠️ Consulta de VOZ Escalada</h2><h3>👤 Usuario</h3><p><strong>Nombre:</strong> {{ $('Webhook Voice Messages1').item.json.body.data.pushName || $('Webhook Voice Messages1').item.json.data.pushName }}</p><p><strong>Teléfono:</strong> {{ $('Webhook Voice Messages1').item.json.body.data.key.remoteJid || $('Webhook Voice Messages1').item.json.data.key.remoteJid }}</p><h3>🎤 Audio Transcrito</h3><p style=\"background:#f0f0f0;padding:10px;border-radius:5px;\">{{ $('Transcribe a recording').item.json.content.parts[0].text }}</p><h3>🤖 Motivo</h3><p>{{ $('AI Voice Responder1').item.json.output.replace('ESCALADO_REQUERIDO:', '') }}</p><p><strong>⏰ Usuario notificado: 24 horas</strong></p>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1744,
+        608
+      ],
+      "id": "8f358a3f-b60c-4201-b91b-4d2e8f3ed625",
+      "name": "Gmail - Notificar Equipo",
+      "webhookId": "747e5b71-b9a0-4d7f-9a51-1a37fde0ae4b",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "ncXVwS6DtZb5faOZ",
+          "name": "Gmail account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://evolution-sql1.srv869945.hstgr.cloud/{{ $('Webhook Voice Messages1').item.json.body.instance || $('Webhook Voice Messages1').item.json.instance }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Webhook Voice Messages1').item.json.body.apikey }}"
+            },
+            {
+              "name": "instance",
+              "value": "={{ $('Webhook Voice Messages1').item.json.body.instance }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "number",
+              "value": "={{ $('Webhook Voice Messages1').item.json.body.data.key.remoteJid }}"
+            },
+            {
+              "name": "text",
+              "value": "={{ $('AI Voice Responder1').item.json.output }}"
+            },
+            {
+              "name": "delay",
+              "value": "={{ 2000 }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1936,
+        608
+      ],
+      "id": "6ab4c83c-f942-429c-a078-27589039f21d",
+      "name": "HTTP - Enviar Texto Escalado"
+    },
+    {
+      "parameters": {
+        "command": "=sqlite3 /home/node/.n8n/private_data.sqlite \"CREATE TABLE IF NOT EXISTS voice_escalated_tickets_sql1 (id INTEGER PRIMARY KEY AUTOINCREMENT, phone_number TEXT, user_name TEXT, transcribed_text TEXT, escalation_reason TEXT, status TEXT DEFAULT 'pending', created_at TEXT); INSERT INTO voice_escalated_tickets_sql1 (phone_number, user_name, transcribed_text, escalation_reason, created_at) VALUES ('{{ $('Webhook Voice Messages1').item.json.body.data.key.remoteJid || $('Webhook Voice Messages1').item.json.data.key.remoteJid }}', '{{ ($('Webhook Voice Messages1').item.json.body.data.pushName || $('Webhook Voice Messages1').item.json.data.pushName).replace(/'/g, \"''\") }}', {{ $('Transcribe a recording').item.json.content.parts[0].text }}, '{{ $('AI Voice Responder1').item.json.output.replace(/'/g, \"''\") }}', '{{ $now.toISO() }}');\""
+      },
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        2128,
+        608
+      ],
+      "id": "8d1eedce-638d-4fe5-b8d6-09028d10b420",
+      "name": "SQLite - Registrar Escalado"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "voice-whatsapp-escalation",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -128,
+        896
+      ],
+      "id": "22366088-938c-4151-82da-a90a8679a58e",
+      "name": "Webhook Voice Messages1",
+      "webhookId": "voice-whatsapp-webhook"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.body.data.messageType }}",
+                    "rightValue": "audioMessage",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "e4f80a89-f0fb-482b-b3cd-9677ac496349"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Audio"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        96,
+        928
+      ],
+      "id": "6780ae7e-9c32-4057-b1a2-49dbe0b61509",
+      "name": "Verificar Tipo Mensaje1"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.content.parts[0].text }}",
+        "options": {
+          "systemMessage": "# Rol\nEres el asistente de VOZ de puma.\n\n# IMPORTANTE para VOZ\n- Frases CORTAS y CLARAS\n- MUY conversacional\n- Máximo 80 palabras\n- Si info compleja: di \"Te envío detalles por texto\"\n\n## ESCALADO\nSi NO puedes responder, responde EXACTAMENTE:\n\"ESCALADO_REQUERIDO: [razón]\"\n\nEscalar:\n- Preguntas técnicas específicas\n- Negociación precios\n- Problemas técnicos\n- Integración custom\n- Desarrollo\n\n## Si puedes:\n\nHola, soy tu asistente de puma.\n\nServicios:\n- Standard: noventa y nueve al mes\n- Premium: ciento noventa y nueve\n- NEXA: trescientos noventa y nueve\n\nContacto: puma arroba gmail\nHorario: lunes a viernes, nueve a dieciocho"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        896,
+        592
+      ],
+      "id": "e36bd57f-2be7-49ab-805d-5e234322095e",
+      "name": "AI Voice Responder1"
+    },
+    {
+      "parameters": {
+        "command": "=sqlite3 /home/node/.n8n/private_data.sqlite \"CREATE TABLE IF NOT EXISTS voice_interactions_sql1 (id INTEGER PRIMARY KEY AUTOINCREMENT, phone TEXT, transcribed_text TEXT, ai_response TEXT, timestamp TEXT, type TEXT); INSERT INTO voice_interactions_sql1 (phone, transcribed_text, ai_response, timestamp, type) VALUES ('{{ $('Webhook Voice Messages1').item.json.body.data.key.remoteJid || $('Webhook Voice Messages1').item.json.data.key.remoteJid }}', {{ $('Transcribe a recording').item.json.content.parts[0].text }}, '{{ $('AI Voice Responder1').item.json.output.replace(/'/g, \"''\") }}', '{{ $now.toISO() }}', 'voice');\""
+      },
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        2240,
+        976
+      ],
+      "id": "389f94ab-cb2b-4976-b398-93e2bfdc7bd6",
+      "name": "SQLite - Registrar Interacción1"
+    },
+    {
+      "parameters": {
+        "resource": "audio",
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-2.0-flash",
+          "mode": "list",
+          "cachedResultName": "models/gemini-2.0-flash"
+        },
+        "inputType": "binary",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1,
+      "position": [
+        576,
+        832
+      ],
+      "id": "baad735c-28d6-4d2f-8055-a6874dda658b",
+      "name": "Transcribe a recording",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "nr9q9VY1uHscSSEq",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.item;\n\n// Función \"sabueso\" que busca la clave 'base64' en cualquier profundidad\nfunction findBase64(obj) {\n  if (!obj || typeof obj !== 'object') return null;\n  \n  // ¡Lo encontré!\n  if (obj.base64) return obj.base64;\n  \n  // Si no está aquí, busca dentro de los hijos\n  for (const key in obj) {\n    if (Object.prototype.hasOwnProperty.call(obj, key)) {\n      const result = findBase64(obj[key]);\n      if (result) return result;\n    }\n  }\n  return null;\n}\n\n// Ejecutamos la búsqueda en todo el JSON de entrada\nconst base64Audio = findBase64(item.json);\n\nif (base64Audio) {\n  // Si lo encontramos, creamos el archivo para Gemini\n  item.binary = {\n    data: {\n      data: base64Audio,\n      mimeType: 'audio/ogg',\n      fileExtension: 'ogg',\n      fileName: 'audio.ogg'\n    }\n  };\n} else {\n  // Si esto salta, es que Evolution API NO envió el audio en este mensaje\n  throw new Error(\"❌ NO SE ENCONTRÓ AUDIO. Por favor, expande la carpeta 'message' en el INPUT para verificar que el campo 'base64' realmente viene en este mensaje.\");\n}\n\nreturn item;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        336,
+        960
+      ],
+      "id": "5e1ba7b9-fe42-4d14-8f6d-d53668e2afc1",
+      "name": "Code in JavaScript"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "¿Requiere Escalado?": {
+      "main": [
+        [
+          {
+            "node": "Gmail - Notificar Equipo",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Google TTS - Generar Audio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Voice Responder1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google TTS - Generar Audio": {
+      "main": [
+        [
+          {
+            "node": "HTTP - Enviar Audio WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP - Enviar Audio WhatsApp": {
+      "main": [
+        [
+          {
+            "node": "SQLite - Registrar Interacción1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail - Notificar Equipo": {
+      "main": [
+        [
+          {
+            "node": "HTTP - Enviar Texto Escalado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP - Enviar Texto Escalado": {
+      "main": [
+        [
+          {
+            "node": "SQLite - Registrar Escalado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook Voice Messages1": {
+      "main": [
+        [
+          {
+            "node": "Verificar Tipo Mensaje1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verificar Tipo Mensaje1": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Voice Responder1": {
+      "main": [
+        [
+          {
+            "node": "¿Requiere Escalado?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transcribe a recording": {
+      "main": [
+        [
+          {
+            "node": "AI Voice Responder1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Transcribe a recording",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "6a25cbf6-9082-45cf-a3ba-2829ef080741",
+  "meta": {
+    "templateId": "voice-whatsapp-agent",
+    "templateCredsSetupCompleted": true,
+    "instanceId": "f2d976ac820a993756afa7a65a73c4005d7455fac46d1ab6b9794f31dd00df0b"
+  },
+  "id": "T5RAQ765KK0aJviL",
+  "tags": [
+    {
+      "createdAt": "2025-11-21T18:08:01.357Z",
+      "updatedAt": "2025-11-21T18:08:01.357Z",
+      "id": "NTS6iDeNStVZ953n",
+      "name": "funcionando"
+    },
+    {
+      "name": "voice-con-escalado",
+      "id": "aZdr9kmQ9lsoX6hI",
+      "createdAt": "2025-11-23T13:51:49.970Z",
+      "updatedAt": "2025-11-23T13:51:49.970Z"
+    }
+  ]
+}
