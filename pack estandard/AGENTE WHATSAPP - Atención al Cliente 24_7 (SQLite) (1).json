@@ -1,0 +1,548 @@
+{
+  "name": "AGENTE WHATSAPP - Atención al Cliente 24/7 (SQLite)",
+  "nodes": [
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "escalation-check",
+              "leftValue": "={{ $json.output }}",
+              "rightValue": "ESCALADO_REQUERIDO",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        2944,
+        1392
+      ],
+      "id": "e830e81f-ccc4-4dcd-8773-f3cc6bb9b6c3",
+      "name": "¿Requiere Escalado?"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://evolution-sql1.srv869945.hstgr.cloud/message/sendText/{{ $('Webhook Evolution API1').item.json.body.instance }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Webhook Evolution API1').item.json.body.apikey }}"
+            },
+            {
+              "name": "instance",
+              "value": "={{ $('Webhook Evolution API1').item.json.body.instance }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "number",
+              "value": "={{ $('Webhook Evolution API1').item.json.body.data.key.remoteJid }}"
+            },
+            {
+              "name": "text",
+              "value": "={{ $('AI WhatsApp Agent1').item.json.output }}"
+            },
+            {
+              "name": "delay",
+              "value": "={{2000}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3392,
+        992
+      ],
+      "id": "b8b6cdfc-c841-4f11-818a-9b762cd77247",
+      "name": "HTTP - Enviar WhatsApp Normal"
+    },
+    {
+      "parameters": {
+        "sendTo": "gorkahvinsperecalders@gmail.com",
+        "subject": "=🚨 ESCALADO WHATSAPP - {{ $('Preparar Contexto1').item.json.user_full_name }}",
+        "message": "=<h2>⚠️ Consulta WhatsApp Escalada</h2><h3>👤 Usuario</h3><p><strong>Nombre:</strong> {{ $('Preparar Contexto1').item.json.user_full_name }}</p><p><strong>Teléfono:</strong> {{ $('Preparar Contexto1').item.json.phone_number }}</p><p><strong>Email:</strong> {{ $('Preparar Contexto1').item.json.user_email || 'No disponible' }}</p><h3>💬 Última Pregunta</h3><p>{{ $('Preparar Contexto1').item.json.user_message }}</p><h3>🤖 Motivo</h3><p>{{ $('AI WhatsApp Agent1').item.json.output.replace('ESCALADO_REQUERIDO:', '') }}</p><p><strong>⏰ Usuario notificado: 24 horas</strong></p>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        3120,
+        1264
+      ],
+      "id": "04d087e1-453e-40f8-812b-efc3476a70a0",
+      "name": "Gmail - Notificar Equipo",
+      "webhookId": "85fe9120-bca5-4aec-ae32-eefcbb36c76e",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "0DPS2NcoZg6dGINB",
+          "name": "Gmail account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://evolution-sql1.srv869945.hstgr.cloud/message/sendText/{{ $('Webhook Evolution API1').item.json.body.instance }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Webhook Evolution API1').item.json.body.apikey }}"
+            },
+            {
+              "name": "instance",
+              "value": "={{ $('Webhook Evolution API1').item.json.body.instance }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "number",
+              "value": "={{ $('Webhook Evolution API1').item.json.body.data.key.remoteJid }}"
+            },
+            {
+              "name": "text",
+              "value": "={{ $('AI WhatsApp Agent1').item.json.output }}"
+            },
+            {
+              "name": "delay",
+              "value": "={{2000}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3312,
+        1264
+      ],
+      "id": "0448f048-4a8c-4956-80b8-393e68a5470b",
+      "name": "HTTP - Enviar WhatsApp Escalado"
+    },
+    {
+      "parameters": {
+        "command": "=sqlite3 /home/node/.n8n/private_data.sqlite \"CREATE TABLE IF NOT EXISTS whatsapp_escalated_tickets_sql1 (\n  id INTEGER PRIMARY KEY AUTOINCREMENT, \n  phone_number TEXT, \n  user_name TEXT, \n  last_message TEXT, \n  escalation_reason TEXT, \n  status TEXT DEFAULT 'pending', \n  created_at TEXT\n); \n\nINSERT INTO whatsapp_escalated_tickets_sql1 (phone_number, user_name, last_message, escalation_reason, created_at) \nVALUES (\n  '{{ $('Preparar Contexto1').item.json.phone_number }}', \n  '{{ $('Preparar Contexto1').item.json.user_full_name.replace(/'/g, \"''\") }}', \n  '{{ $('Preparar Contexto1').item.json.user_message.replace(/'/g, \"''\") }}', \n  '{{ $('AI WhatsApp Agent1').item.json.output.replace(/'/g, \"''\") }}', \n  '{{ $now.toISO() }}'\n); \n\nINSERT INTO chat_history_whatsapp (telefono, role, content, timestamp) \nVALUES (\n  '{{ $('Extraer Datos Mensaje1').item.json.phone_number }}', \n  'user', \n  '{{ $('Extraer Datos Mensaje1').item.json.user_message.replace(/'/g, \"''\") }}', \n  '{{ $now.toISO() }}'\n); \n\nINSERT INTO chat_history_whatsapp (telefono, role, content, timestamp) \nVALUES (\n  '{{ $('Extraer Datos Mensaje1').item.json.phone_number }}', \n  'assistant', \n  'Escalado a equipo', \n  '{{ $now.toISO() }}'\n);\""
+      },
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        3504,
+        1264
+      ],
+      "id": "b129c8f7-2430-416e-9c61-36f4e5af49f7",
+      "name": "SQLite - Registrar Escalado"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        2720,
+        1344
+      ],
+      "id": "5d0b932f-6e04-46c6-84ec-8b82cc2e6e9e",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "ldVfHCaN0ySWxI1E",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "evolution-webhook-chat",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        1520,
+        1232
+      ],
+      "id": "0fee7fa8-dff8-4344-be5f-f8abce0d34a7",
+      "name": "Webhook Evolution API1",
+      "webhookId": "evolution-webhook-chat"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "phone_number",
+              "name": "phone_number",
+              "value": "={{ $json.body.data.key.remoteJid || $json.data.key.remoteJid || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "user_message",
+              "name": "user_message",
+              "value": "={{ $json.body.data.message.conversation || $json.body.data.message.extendedTextMessage?.text || $json.data.message.conversation || $json.data.message.extendedTextMessage?.text || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "user_name",
+              "name": "user_name",
+              "value": "={{ $json.body.data.pushName || $json.data.pushName || 'Usuario' }}",
+              "type": "string"
+            },
+            {
+              "id": "instance",
+              "name": "instance",
+              "value": "={{ $json.body.instance || $json.instance || 'default' }}",
+              "type": "string"
+            },
+            {
+              "id": "message_id",
+              "name": "message_id",
+              "value": "={{ $json.body.data.key.id || $json.data.key.id || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "timestamp",
+              "name": "timestamp",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            },
+            {
+              "id": "message_type",
+              "name": "message_type",
+              "value": "={{ $json.body.data.messageType || $json.data.messageType || 'conversation' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1712,
+        1232
+      ],
+      "id": "21cb834a-b2cb-4eda-a69c-c7a3bd919cb0",
+      "name": "Extraer Datos Mensaje1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "condition1",
+              "leftValue": "={{ $json.user_message }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            },
+            {
+              "id": "condition2",
+              "leftValue": "={{ $json.message_type }}",
+              "rightValue": "conversation|extendedTextMessage",
+              "operator": {
+                "type": "string",
+                "operation": "regex"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.1,
+      "position": [
+        1920,
+        1232
+      ],
+      "id": "cc3f347f-2dd0-47b2-9c61-ff6782fa1d1d",
+      "name": "Filtrar Mensajes Válidos1"
+    },
+    {
+      "parameters": {
+        "command": "=sqlite3 /home/node/.n8n/private_data.sqlite \"CREATE TABLE IF NOT EXISTS leads_sql1 (id INTEGER PRIMARY KEY AUTOINCREMENT, nombre TEXT, apellido TEXT, telefono TEXT, email TEXT, created_at TEXT); CREATE TABLE IF NOT EXISTS chat_history_sql1 (id INTEGER PRIMARY KEY AUTOINCREMENT, telefono TEXT, role TEXT, content TEXT, timestamp TEXT); SELECT id, nombre, apellido, telefono, email FROM leads_sql1 WHERE telefono = '{{ $json.phone_number }}' LIMIT 1;\""
+      },
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        2112,
+        1136
+      ],
+      "id": "85708e69-c531-41b7-9c83-1f43faec506b",
+      "name": "SQLite - Verificar Usuario1"
+    },
+    {
+      "parameters": {
+        "command": "=sqlite3 /home/node/.n8n/private_data.sqlite \"CREATE TABLE IF NOT EXISTS chat_history_whatsapp (id INTEGER PRIMARY KEY AUTOINCREMENT, telefono TEXT, role TEXT, content TEXT, timestamp TEXT); SELECT id, telefono, role, content, timestamp FROM chat_history_whatsapp WHERE telefono = '{{ $('Extraer Datos Mensaje1').item.json.phone_number }}' ORDER BY id DESC LIMIT 10;\""
+      },
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        2320,
+        1136
+      ],
+      "id": "e0471488-549f-479d-bb07-b972f929bc3b",
+      "name": "SQLite - Cargar Historial1"
+    },
+    {
+      "parameters": {
+        "jsCode": "const extractedData = $('Extraer Datos Mensaje1').first().json;\nconst userCheckOutput = $('SQLite - Verificar Usuario1').first().json.stdout || '';\nconst historyOutput = $input.first().json.stdout || '';\n\n// Parsear verificación de usuario\nconst isExistingUser = userCheckOutput.trim() !== '';\nlet userData = null;\nif (isExistingUser) {\n  const parts = userCheckOutput.trim().split('|');\n  if (parts.length >= 5) {\n    userData = {\n      id: parts[0],\n      nombre: parts[1],\n      apellido: parts[2],\n      telefono: parts[3],\n      email: parts[4]\n    };\n  }\n}\n\n// Parsear historial\nlet conversationHistory = '';\nif (historyOutput && historyOutput.trim() !== '') {\n  const lines = historyOutput.trim().split('\\n');\n  lines.reverse();\n  \n  conversationHistory = lines.map(line => {\n    const parts = line.split('|');\n    if (parts.length >= 4) {\n      const role = parts[2];\n      const content = parts[3];\n      return `${role === 'user' ? 'Usuario' : 'Asistente'}: ${content}`;\n    }\n    return '';\n  }).filter(l => l).join('\\n');\n}\n\nreturn {\n  ...extractedData,\n  is_existing_user: isExistingUser,\n  user_id: userData?.id || null,\n  user_full_name: userData ? `${userData.nombre} ${userData.apellido || ''}`.trim() : extractedData.user_name,\n  user_email: userData?.email || '',\n  conversation_history: conversationHistory,\n  has_history: conversationHistory.length > 0\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2512,
+        1136
+      ],
+      "id": "56ced477-60e6-45f2-a04a-ca64ad20a639",
+      "name": "Preparar Contexto1"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.has_history ? 'Historial reciente de conversación:\\n' + $json.conversation_history + '\\n\\n' : '' }}{{ $json.is_existing_user ? 'Usuario registrado: ' + $json.user_full_name : 'Usuario nuevo: ' + $json.user_name }}\\n{{ $json.user_email ? 'Email: ' + $json.user_email : '' }}\\n\\nMensaje actual:\\n{{ $json.user_message }}\\n\\nFecha y hora: {{ $json.timestamp }}",
+        "options": {
+          "systemMessage": "# Rol\\nEres el asistente virtual de atención al cliente de puma, especializada en automatización con IA.\\n\\n# Directrices\\n\\n- Profesional pero cercano\\n- Mensajes cortos (2-4 líneas)\\n- Usa emojis moderadamente (1-2)\\n- NO uses Markdown (nada de **, *, etc.)\\n\\n## IMPORTANTE - ESCALADO\\nSi NO tienes información suficiente, responde EXACTAMENTE:\\n\"ESCALADO_REQUERIDO: [razón]\"\\n\\nEscalar cuando:\\n- Preguntas técnicas muy específicas\\n- Negociaciones de precio personalizadas\\n- Problemas técnicos complejos\\n- Integración con sistemas específicos\\n- Consultas sobre desarrollo custom\\n\\n## Si puedes responder:\\n\\nHola [nombre]! 👋 Bienvenido/a a puma.\\nSoy tu asistente 24/7. ¿En qué te ayudo?\\n\\n**Servicios:**\\n- Standard ($99/mes): WhatsApp + Gmail + Leads\\n- Premium ($199/mes): Standard + Voice + Marketing\\n- NEXA ($399/mes): Suite completa\\n\\n**Contacto:**\\n- Email: puma@gmail.com\\n- Horario: Lun-Vie 9-18h"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        2720,
+        1136
+      ],
+      "id": "34e7109c-e835-4eea-9554-a901da916423",
+      "name": "AI WhatsApp Agent1"
+    },
+    {
+      "parameters": {
+        "command": "=sqlite3 /home/node/.n8n/private_data.sqlite \"INSERT INTO chat_history_whatsapp (telefono, role, content, timestamp) \nVALUES (\n  '{{ $('Extraer Datos Mensaje1').item.json.phone_number }}', \n  'user', \n  '{{ $('Extraer Datos Mensaje1').item.json.user_message.replace(/'/g, \"''\") }}', \n  '{{ $('Extraer Datos Mensaje1').item.json.timestamp }}'\n); \n\nINSERT INTO chat_history_whatsapp (telefono, role, content, timestamp) \nVALUES (\n  '{{ $('Extraer Datos Mensaje1').item.json.phone_number }}', \n  'assistant', \n  '{{ $('AI WhatsApp Agent1').item.json.output.replace(/'/g, \"''\") }}', \n  '{{ $now.toISO() }}'\n);\""
+      },
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        3104,
+        1008
+      ],
+      "id": "914ba627-0cbd-49dc-a17e-2972b77bf698",
+      "name": "SQLite - Guardar Mensajes1"
+    },
+    {
+      "parameters": {
+        "content": "## AGENTE WHATSAPP - CON ESCALADO\n\n### Funcionalidades:\n✅ Webhook Evolution API\n✅ Respuestas automáticas con IA\n✅ Sistema de escalado inteligente\n✅ Notificación al equipo por Gmail\n✅ HTTP Request (sin nodos custom)\n✅ Base de datos SQLite\n\n### Configuración Rápida:\n\n1. **Evolution API URL:**\n   - Nodos HTTP Request\n   - Cambiar: `https://TUEVOLUTIONAPI.com`\n   - Por tu URL de Evolution API\n\n2. **Credenciales:**\n   - `EVOLUTION_HEADER_AUTH_ID`: Header Auth con tu apikey\n   - `GMAIL_CREDENTIAL_ID`: Gmail OAuth2\n   - `GEMINI_CREDENTIAL_ID`: Google Gemini\n\n3. **Email del equipo:**\n   - Nodo: Gmail - Notificar Equipo\n   - Cambiar: puma@gmail.com\n\n### Tablas SQLite:\n- leads_sql1\n- chat_history_sql1\n- whatsapp_escalated_tickets_sql1\n\n### Escalado:\nIA detecta cuando no puede responder:\n- Email al equipo\n- WhatsApp al usuario (24h)\n- Registro en DB",
+        "height": 650,
+        "width": 400,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1152,
+        992
+      ],
+      "id": "bb48f96b-053e-45e2-881a-310677e594a5",
+      "name": "Info Workflow1"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI WhatsApp Agent1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Requiere Escalado?": {
+      "main": [
+        [
+          {
+            "node": "Gmail - Notificar Equipo",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "SQLite - Guardar Mensajes1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail - Notificar Equipo": {
+      "main": [
+        [
+          {
+            "node": "HTTP - Enviar WhatsApp Escalado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP - Enviar WhatsApp Escalado": {
+      "main": [
+        [
+          {
+            "node": "SQLite - Registrar Escalado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook Evolution API1": {
+      "main": [
+        [
+          {
+            "node": "Extraer Datos Mensaje1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extraer Datos Mensaje1": {
+      "main": [
+        [
+          {
+            "node": "Filtrar Mensajes Válidos1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filtrar Mensajes Válidos1": {
+      "main": [
+        [
+          {
+            "node": "SQLite - Verificar Usuario1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SQLite - Verificar Usuario1": {
+      "main": [
+        [
+          {
+            "node": "SQLite - Cargar Historial1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SQLite - Cargar Historial1": {
+      "main": [
+        [
+          {
+            "node": "Preparar Contexto1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar Contexto1": {
+      "main": [
+        [
+          {
+            "node": "AI WhatsApp Agent1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI WhatsApp Agent1": {
+      "main": [
+        [
+          {
+            "node": "¿Requiere Escalado?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SQLite - Guardar Mensajes1": {
+      "main": [
+        [
+          {
+            "node": "HTTP - Enviar WhatsApp Normal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "d2162840-0976-4727-b7c6-258f5e80b534",
+  "meta": {
+    "templateId": "agent-whatsapp-evolution-standard-v3-sqlite",
+    "templateCreatedBy": "puma",
+    "description": "Agente WhatsApp 24/7 con Evolution API, usando SQLite interno de n8n",
+    "templateCredsSetupCompleted": true,
+    "instanceId": "5779338d8ee6159c235c054c6cf7f1748d4de2d0e0f152f89b949f4153e3b610"
+  },
+  "id": "prIJuN0QpIIny202",
+  "tags": [
+    {
+      "createdAt": "2025-11-23T10:16:55.060Z",
+      "updatedAt": "2025-11-23T10:16:55.060Z",
+      "id": "ICVuLAOu7A7OBiRO",
+      "name": "funcionando con escalado"
+    }
+  ]
+}
