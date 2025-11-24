@@ -1,0 +1,1007 @@
+{
+  "name": "Telegram - Ideas (Google Sheets)",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -1440,
+        144
+      ],
+      "id": "b75f688d-3af4-4239-b236-8e27d3715429",
+      "name": "Telegram Trigger - Ideas",
+      "webhookId": "telegram-ideas-webhook",
+      "credentials": {
+        "telegramApi": {
+          "id": "Au8Ajse28MQyU8GU",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "is-idea",
+              "leftValue": "={{ ($json.message.text || '').split(' ')[0] }}",
+              "rightValue": "/idea",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1200,
+        64
+      ],
+      "id": "700a0c99-6cab-4ddf-be18-7173884cc5b3",
+      "name": "IF /idea"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "is-valorar",
+              "leftValue": "={{ ($json.message.text || '').split(' ')[0] }}",
+              "rightValue": "/valorar",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -960,
+        176
+      ],
+      "id": "642b98be-292e-4318-8ae2-79f513c4e115",
+      "name": "IF /valorar"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "is-ideas",
+              "leftValue": "={{ ($json.message.text || '').split(' ')[0] }}",
+              "rightValue": "/ideas",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -720,
+        304
+      ],
+      "id": "16a66d77-a465-4fe1-b682-592240f5f55c",
+      "name": "IF /ideas"
+    },
+    {
+      "parameters": {
+        "jsCode": "const msg = $json.message || {};\nconst text = (msg.text || '').trim();\nconst parts = text.split(/\\s+/);\nparts.shift();\nconst idea = parts.join(' ').trim();\n\nreturn [{\n  idea,\n  username: (msg.from && msg.from.username) || ''\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1232,
+        -288
+      ],
+      "id": "d1063411-c64e-4344-a4dc-e944b5f91d76",
+      "name": "Idea - Extraer texto"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Eres un analista de producto. Dada la siguiente idea, devuelve SOLO JSON válido con esta estructura:\n{\n  \"integracion\": \"...\",\n  \"target\": \"...\",\n  \"observaciones\": \"...\"\n}\n\nIdea: \"{{ $('Idea - Extraer texto').first().json.idea }}\"\n\n",
+        "options": {
+          "systemMessage": "Eres un asistente JSON estricto. SOLO devuelves JSON válido sin markdown. Responde siempre en español."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        -672,
+        -80
+      ],
+      "id": "2ee4b7be-6e4b-4619-b323-b6cdd62f1d2d",
+      "name": "Agent AI - Completar Idea"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -720,
+        -304
+      ],
+      "id": "90e514d7-9347-4dfc-90b5-9eab3201d7e5",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "nr9q9VY1uHscSSEq",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "raw-output",
+              "name": "raw_output",
+              "value": "={{ $json.output }}",
+              "type": "string"
+            },
+            {
+              "id": "integracion-field",
+              "name": "Integracion",
+              "value": "={{ JSON.parse(($json.output || '').replace(/```json/g,'').replace(/```/g,'')).integracion || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "target-field",
+              "name": "Target",
+              "value": "={{ JSON.parse(($json.output || '').replace(/```json/g,'').replace(/```/g,'')).target || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "obs-field",
+              "name": "Observaciones",
+              "value": "={{ JSON.parse(($json.output || '').replace(/```json/g,'').replace(/```/g,'')).observaciones || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "idea-field",
+              "name": "Idea",
+              "value": "={{ JSON.parse($json.output.replace(/```json/g, '').replace(/```/g, '')).integracion || '' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -432,
+        -240
+      ],
+      "id": "e613fb47-eb23-4955-8a99-3a99d72330db",
+      "name": "Idea - Preparar datos IA"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1thT30WANQw4tF2pIfbFUFTEv51uzVFUlOSJK6SQYrj0",
+          "mode": "list",
+          "cachedResultName": "Ideas workflows N8N",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1thT30WANQw4tF2pIfbFUFTEv51uzVFUlOSJK6SQYrj0/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Hoja 1",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Integración": "={{ $json.Integracion }}",
+            "Target": "={{ $json.Target }}",
+            "Observaciones": "={{ $json.Observaciones }}",
+            "IDEAS:": "={{ $json.Idea }}",
+            "row_number": 0,
+            "ID": "={{ $('Code - Buscar Hueco Libre').item.json.next_free_id}}"
+          },
+          "matchingColumns": [
+            "ID"
+          ],
+          "schema": [
+            {
+              "id": "IDEAS:",
+              "displayName": "IDEAS:",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "ID",
+              "displayName": "ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Viablidad puma",
+              "displayName": "Viablidad puma",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Viabilidad gorka",
+              "displayName": "Viabilidad gorka",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Prioridad puma",
+              "displayName": "Prioridad puma",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Prioridad Gorka",
+              "displayName": "Prioridad Gorka",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Puntuación",
+              "displayName": "Puntuación",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Integración",
+              "displayName": "Integración",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Target",
+              "displayName": "Target",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Observaciones",
+              "displayName": "Observaciones",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -192,
+        -240
+      ],
+      "id": "ff6cd36d-104a-4794-bf65-6b029f820361",
+      "name": "Google Sheets - Ideas (append)",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "oYdByuwpHiNH0YRW",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger - Ideas').first().json.message.from.id }}",
+        "text": "=Idea creada:\nIdea: {{ $json['IDEAS:'] }}\nIntegración: {{ $json['Integración'] }}\nTarget: {{ $json.Target }}\nObservaciones: {{ $json.Observaciones }}",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        48,
+        -240
+      ],
+      "id": "5b9a613b-dcbd-4bcc-bdad-b3f2fd982bce",
+      "name": "Telegram - Idea creada",
+      "webhookId": "telegram-idea-creada-webhook",
+      "credentials": {
+        "telegramApi": {
+          "id": "Au8Ajse28MQyU8GU",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const msg = $json.message || {};\nconst text = (msg.text || '').trim();\nconst parts = text.split(/\\s+/);\n\nconst username = ((msg.from && msg.from.username) || '').toLowerCase();\nconst who = username === 'gorkahv' ? 'gorka' : 'puma';\n\n// Formato esperado: /valorar <ID> <viabilidad> <prioridad>\nif (parts.length < 4) {\n  return [{\n    valid: false,\n    who,\n    errorText: 'Formato incorrecto. Usa: /valorar <ID> <viabilidad 0-10> <prioridad 0-10>'\n  }];\n}\n\nconst id = parseInt(parts[1], 10);\nconst viabilidad = parseFloat((parts[2] || '').replace(',', '.'));\nconst prioridad = parseFloat((parts[3] || '').replace(',', '.'));\n\nif (Number.isNaN(id) || Number.isNaN(viabilidad) || Number.isNaN(prioridad)) {\n  return [{\n    valid: false,\n    who,\n    errorText: 'Formato incorrecto. Usa: /valorar <ID> <viabilidad 0-10> <prioridad 0-10>'\n  }];\n}\n\nreturn [{\n  valid: true,\n  ideaId: id,\n  viabilidad,\n  prioridad,\n  who\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -720,
+        96
+      ],
+      "id": "ef63b6ba-11d4-41a0-a1e4-d96a316276ec",
+      "name": "Valorar - Parsear comando"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "is-gorka",
+              "leftValue": "={{ $json.who }}",
+              "rightValue": "gorka",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -464,
+        96
+      ],
+      "id": "b4035252-220e-42fc-90f5-6c47e4f4d27e",
+      "name": "IF es Gorka"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1thT30WANQw4tF2pIfbFUFTEv51uzVFUlOSJK6SQYrj0",
+          "mode": "list",
+          "cachedResultName": "Ideas workflows N8N",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1thT30WANQw4tF2pIfbFUFTEv51uzVFUlOSJK6SQYrj0/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Hoja 1",
+          "mode": "name"
+        },
+        "columnToMatchOn": "ID",
+        "valueToMatchOn": "={{ $json.ideaId }}",
+        "fieldsUi": {
+          "values": [
+            {
+              "column": "Viabilidad gorka",
+              "fieldValue": "={{ $json.viabilidad }}"
+            },
+            {
+              "column": "Prioridad Gorka",
+              "fieldValue": "={{ $json.prioridad }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 3,
+      "position": [
+        -224,
+        16
+      ],
+      "id": "18179796-6b14-4b6d-90c8-a501b56fb489",
+      "name": "Google Sheets - Actualizar Gorka",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "oYdByuwpHiNH0YRW",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1thT30WANQw4tF2pIfbFUFTEv51uzVFUlOSJK6SQYrj0",
+          "mode": "list",
+          "cachedResultName": "Ideas workflows N8N",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1thT30WANQw4tF2pIfbFUFTEv51uzVFUlOSJK6SQYrj0/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Hoja 1",
+          "mode": "name"
+        },
+        "columnToMatchOn": "ID",
+        "valueToMatchOn": "={{ $json.ideaId }}",
+        "fieldsUi": {
+          "values": [
+            {
+              "column": "Viablidad puma",
+              "fieldValue": "={{ $json.viabilidad }}"
+            },
+            {
+              "column": "Prioridad puma",
+              "fieldValue": "={{ $json.prioridad }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 3,
+      "position": [
+        -224,
+        176
+      ],
+      "id": "61013519-fbc8-4964-bd60-1898cd59d475",
+      "name": "Google Sheets - Actualizar Puma",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "oYdByuwpHiNH0YRW",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger - Ideas').item.json.message.chat.id }}",
+        "text": "={{ $json.valid === false ? ($json.errorText || 'Formato incorrecto. Usa: /valorar <ID> <viabilidad 0-10> <prioridad 0-10>') : '✅ Valoración registrada para idea #' + $json.ideaId }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        16,
+        96
+      ],
+      "id": "fbe3d7d2-014e-49f0-a112-39c888865dd9",
+      "name": "Telegram - Confirmar valoración",
+      "webhookId": "telegram-confirmar-valoracion-webhook",
+      "credentials": {
+        "telegramApi": {
+          "id": "Au8Ajse28MQyU8GU",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1thT30WANQw4tF2pIfbFUFTEv51uzVFUlOSJK6SQYrj0",
+          "mode": "list",
+          "cachedResultName": "Ideas workflows N8N",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1thT30WANQw4tF2pIfbFUFTEv51uzVFUlOSJK6SQYrj0/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Hoja 1",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 3,
+      "position": [
+        -464,
+        384
+      ],
+      "id": "4e179b0c-e61d-451b-a139-513a74683262",
+      "name": "Google Sheets - Leer Ideas",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "oYdByuwpHiNH0YRW",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all().map(i => i.json);\n\nif (!items.length) {\n  return [{ text: 'No hay ideas todavía.' }];\n}\n\nconst ideasConPuntuacion = items\n  .map(r => {\n    const pRaw = r['Puntuación'] || r['Puntuacion'] || '';\n    const p = parseFloat(String(pRaw).replace(',', '.')) || 0;\n    return { ...r, _puntuacion: p };\n  })\n  .filter(r => r._puntuacion > 0);\n\nif (!ideasConPuntuacion.length) {\n  return [{ text: 'Aún no hay ideas valoradas.' }];\n}\n\nideasConPuntuacion.sort((a, b) => b._puntuacion - a._puntuacion);\n\nconst top = ideasConPuntuacion.slice(0, 5);\n\nconst lines = top.map((r, i) => {\n  const idea = r['Idea'] || r['IDEAS:'] || '-';\n  const vP = r['Viabilidad Puma'] || r['Viablidad puma'] || r['Viabilidad puma'] || '-';\n  const vG = r['Viabilidad Gorka'] || r['Viabilidad gorka'] || '-';\n  const pP = r['Prioridad Puma'] || r['Prioridad puma'] || '-';\n  const pG = r['Prioridad Gorka'] || r['Prioridad gorka'] || '-';\n  const target = r['Target'] || '-';\n  const integ = r['Integración'] || r['Integracion'] || '-';\n  const punt = r._puntuacion;\n\n  return `#${i + 1} (${punt} pts) - ${idea}\\nViab: Puma ${vP} / Gorka ${vG}\\nPrior: Puma ${pP} / Gorka ${pG}\\nTarget: ${target}\\nIntegración: ${integ}`;\n});\n\nconst message = '🧠 Top ideas por puntuación\\n\\n' + lines.join('\\n\\n');\n\nreturn [{ text: message }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -224,
+        384
+      ],
+      "id": "b6b1f866-f1cf-43b1-8eed-0cefddda1bf8",
+      "name": "Ideas - Formatear mensaje"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger - Ideas').first().json.message.chat.id }}",
+        "text": "={{ $json.text }}",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        16,
+        384
+      ],
+      "id": "1f1ec75a-6910-41e5-83d4-ae025461c0a4",
+      "name": "Telegram - Enviar Ideas",
+      "webhookId": "telegram-enviar-ideas-webhook",
+      "credentials": {
+        "telegramApi": {
+          "id": "Au8Ajse28MQyU8GU",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1thT30WANQw4tF2pIfbFUFTEv51uzVFUlOSJK6SQYrj0",
+          "mode": "list",
+          "cachedResultName": "Ideas workflows N8N",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1thT30WANQw4tF2pIfbFUFTEv51uzVFUlOSJK6SQYrj0/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Hoja 1",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 3,
+      "position": [
+        -464,
+        576
+      ],
+      "id": "7c46e1d8-de10-4784-b864-147815ba8015",
+      "name": "Google Sheets - Leer Ideas (pendientes)",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "oYdByuwpHiNH0YRW",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all().map(i => i.json);\n\nif (!items.length) {\n  return [{ text: 'No hay ideas todavía.' }];\n}\n\nconst msg = $('Telegram Trigger - Ideas').first().json.message || {};\nconst username = ((msg.from && msg.from.username) || '').toLowerCase();\nconst who = username === 'gorkahv' ? 'gorka' : 'puma';\n\nfunction isEmpty(v) {\n  if (v === null || v === undefined) return true;\n  return String(v).trim() === '';\n}\n\nconst pendientes = items.filter(r => {\n  if (who === 'gorka') {\n    const v = r['Viabilidad Gorka'] || r['Viabilidad gorka'];\n    const p = r['Prioridad Gorka'] || r['Prioridad gorka'];\n    return isEmpty(v) || isEmpty(p);\n  } else {\n    const v = r['Viabilidad Puma'] || r['Viablidad puma'] || r['Viabilidad puma'];\n    const p = r['Prioridad Puma'] || r['Prioridad puma'];\n    return isEmpty(v) || isEmpty(p);\n  }\n});\n\nif (!pendientes.length) {\n  return [{ text: 'No tienes ideas pendientes de valorar.' }];\n}\n\npendientes.sort((a, b) => {\n  const idA = parseFloat(String(a['ID'] || a['Id'] || '0').replace(',', '.')) || 0;\n  const idB = parseFloat(String(b['ID'] || b['Id'] || '0').replace(',', '.')) || 0;\n  return idA - idB;\n});\n\nconst maxItems = 10;\nconst subset = pendientes.slice(0, maxItems);\n\nconst header = who === 'gorka'\n  ? '🧾 Ideas pendientes de valorar (Gorka)'\n  : '🧾 Ideas pendientes de valorar (Puma)';\n\nconst lines = subset.map(r => {\n  const id = r['ID'] || r['Id'] || '?';\n  const idea = r['Idea'] || r['IDEAS:'] || '-';\n  return `ID ${id}: ${idea}\\n-> Valora con: /valorar ${id} <viabilidad> <prioridad>`;\n});\n\nlet message = header + '\\n\\n' + lines.join('\\n\\n');\n\nif (pendientes.length > maxItems) {\n  message += `\\n\\n(+ ${pendientes.length - maxItems} ideas más)`;\n}\n\nreturn [{ text: message }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -224,
+        576
+      ],
+      "id": "24962606-0284-4b82-882c-ca5a45b2945d",
+      "name": "Pendientes - Formatear mensaje"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger - Ideas').first().json.message.chat.id }}",
+        "text": "={{ $json.text }}",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        16,
+        576
+      ],
+      "id": "8448cb28-4311-4b83-bd36-fea5f719c427",
+      "name": "Telegram - Enviar Pendientes",
+      "webhookId": "telegram-enviar-pendientes-webhook",
+      "credentials": {
+        "telegramApi": {
+          "id": "Au8Ajse28MQyU8GU",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1thT30WANQw4tF2pIfbFUFTEv51uzVFUlOSJK6SQYrj0",
+          "mode": "list",
+          "cachedResultName": "Ideas workflows N8N",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1thT30WANQw4tF2pIfbFUFTEv51uzVFUlOSJK6SQYrj0/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Hoja 1",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 3,
+      "position": [
+        -1104,
+        -144
+      ],
+      "id": "89159978-4704-46d1-a106-5d142eea4790",
+      "name": "Google Sheets - Leer Todo",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "oYdByuwpHiNH0YRW",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Obtenemos todas las filas que descargó el nodo anterior\nconst rows = $input.all();\n\n// Buscamos la primera fila donde la columna \"IDEAS:\" esté vacía\n// Nota: Asegúrate de que el nombre \"IDEAS:\" sea EXACTO al de tu Excel (espacios, mayúsculas, etc.)\nconst emptyRow = rows.find(row => {\n  const idea = row.json['IDEAS:'];\n  return !idea || idea.toString().trim() === '';\n});\n\nif (emptyRow) {\n  // ¡Éxito! Encontramos un hueco. Devolvemos el ID de esa fila.\n  return {\n    next_free_id: emptyRow.json['ID']\n  };\n} else {\n  // Si no hay huecos, devolvemos null (puedes manejar este error después)\n  return {\n    next_free_id: null,\n    error: \"No hay filas libres\"\n  };\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -880,
+        -128
+      ],
+      "id": "706e4a2d-fa39-4006-89e6-86a6b248a68f",
+      "name": "Code - Buscar Hueco Libre"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Telegram Trigger - Ideas": {
+      "main": [
+        [
+          {
+            "node": "IF /idea",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF /idea": {
+      "main": [
+        [
+          {
+            "node": "Idea - Extraer texto",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "IF /valorar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Idea - Extraer texto": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets - Leer Todo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent AI - Completar Idea": {
+      "main": [
+        [
+          {
+            "node": "Idea - Preparar datos IA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Idea - Preparar datos IA": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets - Ideas (append)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Sheets - Ideas (append)": {
+      "main": [
+        [
+          {
+            "node": "Telegram - Idea creada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF /valorar": {
+      "main": [
+        [
+          {
+            "node": "Valorar - Parsear comando",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "IF /ideas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Valorar - Parsear comando": {
+      "main": [
+        [
+          {
+            "node": "IF es Gorka",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF es Gorka": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets - Actualizar Gorka",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Google Sheets - Actualizar Puma",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Sheets - Actualizar Gorka": {
+      "main": [
+        [
+          {
+            "node": "Telegram - Confirmar valoración",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Sheets - Actualizar Puma": {
+      "main": [
+        [
+          {
+            "node": "Telegram - Confirmar valoración",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF /ideas": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets - Leer Ideas",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Google Sheets - Leer Ideas (pendientes)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Sheets - Leer Ideas": {
+      "main": [
+        [
+          {
+            "node": "Ideas - Formatear mensaje",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Sheets - Leer Ideas (pendientes)": {
+      "main": [
+        [
+          {
+            "node": "Pendientes - Formatear mensaje",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pendientes - Formatear mensaje": {
+      "main": [
+        [
+          {
+            "node": "Telegram - Enviar Pendientes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ideas - Formatear mensaje": {
+      "main": [
+        [
+          {
+            "node": "Telegram - Enviar Ideas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Agent AI - Completar Idea",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Sheets - Leer Todo": {
+      "main": [
+        [
+          {
+            "node": "Code - Buscar Hueco Libre",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Buscar Hueco Libre": {
+      "main": [
+        [
+          {
+            "node": "Agent AI - Completar Idea",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "29dbfd49-51e4-4938-a78e-724626ea0f27",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "f2d976ac820a993756afa7a65a73c4005d7455fac46d1ab6b9794f31dd00df0b"
+  },
+  "id": "qmdhDxvc0ZK5fayj",
+  "tags": []
+}
