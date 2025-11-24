@@ -145,7 +145,7 @@
     {
       "parameters": {
         "promptType": "define",
-        "text": "=Eres un analista de producto. Dada la siguiente idea, devuelve SOLO JSON válido con esta estructura:\n{\n  \"integracion\": \"...\",\n  \"target\": \"...\",\n  \"observaciones\": \"...\"\n}\n\nIdea: \"{{ $('Idea - Extraer texto').first().json.idea }}\"\n\n",
+        "text": "=Eres un analista de producto. Dada la siguiente idea, devuelve SOLO JSON válido con esta estructura:\n{\n  \"idea\" : \"...\",\n  \"integracion\": \"...\",\n  \"target\": \"...\",\n  \"observaciones\": \"...\"\n}\n\nIdea: \"{{ $('Idea - Extraer texto').first().json.idea }}\"\n\n",
         "options": {
           "systemMessage": "Eres un asistente JSON estricto. SOLO devuelves JSON válido sin markdown. Responde siempre en español."
         }
@@ -209,7 +209,7 @@
             {
               "id": "idea-field",
               "name": "Idea",
-              "value": "={{ JSON.parse($json.output.replace(/```json/g, '').replace(/```/g, '')).integracion || '' }}",
+              "value": "={{ JSON.parse($json.output.replace(/```json/g, '').replace(/```/g, ''))['idea'] || '' }}",
               "type": "string"
             }
           ]
@@ -248,7 +248,7 @@
             "Observaciones": "={{ $json.Observaciones }}",
             "IDEAS:": "={{ $json.Idea }}",
             "row_number": 0,
-            "ID": "={{ $('Code - Buscar Hueco Libre').item.json.next_free_id}}"
+            "ID": "={{ $('Code - Buscar Hueco Libre').item.json.next_free_id }}"
           },
           "matchingColumns": [
             "ID"
@@ -389,7 +389,7 @@
     {
       "parameters": {
         "chatId": "={{ $('Telegram Trigger - Ideas').first().json.message.from.id }}",
-        "text": "=Idea creada:\nIdea: {{ $json['IDEAS:'] }}\nIntegración: {{ $json['Integración'] }}\nTarget: {{ $json.Target }}\nObservaciones: {{ $json.Observaciones }}",
+        "text": "=Idea creada: {{ $('Idea - Preparar datos IA').item.json.Idea }}\nIntegración: {{ $json['Integración'] }}\nTarget: {{ $json.Target }}\nObservaciones: {{ $json.Observaciones }}",
         "additionalFields": {
           "parse_mode": "Markdown"
         }
@@ -993,11 +993,11 @@
       ]
     }
   },
-  "active": true,
+  "active": false,
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "29dbfd49-51e4-4938-a78e-724626ea0f27",
+  "versionId": "b195595c-5969-42a4-9cc1-c59392fcbd3e",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "f2d976ac820a993756afa7a65a73c4005d7455fac46d1ab6b9794f31dd00df0b"
